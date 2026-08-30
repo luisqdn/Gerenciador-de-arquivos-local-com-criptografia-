@@ -1,0 +1,76 @@
+/* Ajustes sobre o estilo Fusion.
+
+   O que depende de contraste com o fundo -- textos secundários, separadores,
+   molduras -- usa cinza neutro com transparência, que se resolve bem tanto no
+   tema claro quanto no escuro sem exigir duas folhas de estilo. A cor das
+   linhas alternadas da tabela é calculada em código (ver MainWindow), porque
+   pelo QSS ela depende de um papel de paleta que nem toda plataforma preenche
+   de forma previsível. */
+
+QLabel#rotuloDiscreto {
+    color: #8a8f98;
+    font-size: 11px;
+}
+
+QLabel#rotuloErro {
+    color: #e05a4c;
+}
+
+QLabel#tituloDetalhe {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+QLabel#valorSenha {
+    font-family: "Consolas", "DejaVu Sans Mono", monospace;
+    letter-spacing: 1px;
+    padding: 2px 0;
+}
+
+QLabel#notasDetalhe {
+    background: rgba(127, 127, 127, 0.10);
+    border: 1px solid rgba(127, 127, 127, 0.35);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+QLabel#rotuloForca {
+    font-size: 11px;
+}
+
+QToolBar {
+    border: none;
+    padding: 4px;
+    spacing: 4px;
+}
+
+QTableView {
+    gridline-color: rgba(127, 127, 127, 0.25);
+}
+
+QTableView::item {
+    padding: 4px;
+}
+
+QTreeView::item {
+    padding: 3px;
+}
+
+QStatusBar {
+    border-top: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+QPushButton:flat {
+    color: palette(link);
+    text-align: left;
+    padding: 0;
+    border: none;
+}
+
+QPushButton:flat:hover {
+    text-decoration: underline;
+}

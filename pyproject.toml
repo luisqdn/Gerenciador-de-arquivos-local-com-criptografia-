@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arca"
+version = "1.0.0"
+description = "Gerenciador de senhas local com cofre criptografado de formato proprio"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Fabiano Leite Freitas" }]
+keywords = ["senhas", "criptografia", "argon2", "cofre"]
+classifiers = [
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Security :: Cryptography",
+]
+dependencies = [
+    "cryptography>=42.0",
+    "argon2-cffi>=23.1",
+]
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+
+[project.scripts]
+arca = "arca.cli.main:main"
+
+[project.gui-scripts]
+arca-gui = "arca.gui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+arca = ["gui/resources/*.qss", "resources/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# As assinaturas dos modelos Qt sao ditadas pela classe base: o valor padrao
+# QModelIndex() faz parte do contrato de QAbstractItemModel e trocar por None
+# quebraria as chamadas vindas do lado C++.
+"src/arca/gui/models/*.py" = ["B008"]
