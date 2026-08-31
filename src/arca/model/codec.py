@@ -62,6 +62,8 @@ def load_payload(dados: bytes, cifra: CifraDeFluxo) -> Vault:
     if not isinstance(raiz_bruta, dict):
         raise VaultFormatError("payload sem grupo raiz")
 
+    _recusar_payload_legado(raiz_bruta)
+
     for recipiente, chave in _campos_protegidos(raiz_bruta):
         try:
             mascarado = base64.b64decode(recipiente[chave], validate=True)
@@ -75,6 +77,25 @@ def load_payload(dados: bytes, cifra: CifraDeFluxo) -> Vault:
     )
     cofre.relink()
     return cofre
+
+
+def _recusar_payload_legado(grupo: dict[str, Any]) -> None:
+    """Rejeita, com uma mensagem legível, cofres da versão anterior.
+
+    Aquela versão mascarava também os campos personalizados e as versões do
+    histórico. Como o keystream é sequencial, ignorar esses valores na leitura
+    desalinharia o fluxo e produziria lixo a partir da segunda entrada -- o
+    sintoma seria um erro de decodificação, não uma explicação.
+    """
+    for entrada in grupo.get("entradas", []):
+        if entrada.get("campos") or entrada.get("historico"):
+            raise VaultFormatError(
+                "este cofre foi gravado por uma versão anterior do Arca, que "
+                "guardava campos personalizados e histórico de versões. Abra-o "
+                "naquela versão para copiar o que precisar."
+            )
+    for subgrupo in grupo.get("grupos", []):
+        _recusar_payload_legado(subgrupo)
 
 
 def _campos_protegidos(grupo: dict[str, Any]) -> Iterator[tuple[dict[str, Any], str]]:
