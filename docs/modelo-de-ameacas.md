@@ -18,7 +18,7 @@ criptográficos escolhidos, todos visíveis no cabeçalho em claro.
 Alguém obtém uma cópia do `.arca` — backup em nuvem, pendrive perdido, disco
 descartado.
 
-O conteúdo está cifrado com AES-256 ou ChaCha20 sob uma chave derivada por
+O conteúdo está cifrado com AES-256 sob uma chave derivada por
 Argon2id. Com os parâmetros padrão (64 MiB, 4 iterações, 4 threads), cada
 tentativa de senha custa cerca de meio segundo em uma CPU de mesa, e o custo
 de memória impede que uma GPU compense isso com paralelismo barato.
@@ -112,7 +112,7 @@ projeto tenta não ter.
 |----------------------------------|------------------------------------------------------------------------|
 | Argon2id como KDF                | vencedor da PHC; custo de memória encarece ataque em GPU/FPGA          |
 | Parâmetros gravados no cofre     | permite elevar o custo depois sem quebrar cofres antigos               |
-| Sal e IV novos a cada gravação   | chave de cifragem nunca se repete; elimina reúso de nonce no ChaCha20  |
+| Sal e IV novos a cada gravação   | chave de cifragem nunca se repete; elimina reúso do par (chave, IV)   |
 | Encrypt-then-MAC                 | integridade verificável antes de expor a cifra a dados hostis          |
 | HMAC por bloco com subchave      | detecta reordenação, duplicação e truncamento, não só alteração        |
 | Domínios `0x01`/`0x02`           | separa chave de cifragem da semente de HMAC                            |

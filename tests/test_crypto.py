@@ -14,7 +14,7 @@ from io import BytesIO
 
 import pytest
 
-from arca.crypto.ciphers import CipherId, decrypt, encrypt, new_iv
+from arca.crypto.ciphers import decrypt, encrypt, new_iv
 from arca.crypto.generator import (
     AMBIGUOS,
     DIGITOS,
@@ -37,26 +37,21 @@ from arca.model.errors import IntegrityError, VaultFormatError
 
 
 class TestCifras:
-    @pytest.mark.parametrize("suite", list(CipherId))
-    def test_ida_e_volta(self, suite: CipherId) -> None:
-        chave, iv = os.urandom(32), new_iv(suite)
+    def test_ida_e_volta(self) -> None:
+        chave, iv = os.urandom(32), new_iv()
         claro = b"conteudo sigiloso do cofre" * 40
-        assert decrypt(suite, chave, iv, encrypt(suite, chave, iv, claro)) == claro
+        assert decrypt(chave, iv, encrypt(chave, iv, claro)) == claro
 
-    @pytest.mark.parametrize("suite", list(CipherId))
-    def test_vazio(self, suite: CipherId) -> None:
-        chave, iv = os.urandom(32), new_iv(suite)
-        assert decrypt(suite, chave, iv, encrypt(suite, chave, iv, b"")) == b""
-
-    def test_chacha_comeca_com_contador_zerado(self) -> None:
-        assert new_iv(CipherId.CHACHA20)[:8] == b"\x00" * 8
+    def test_vazio(self) -> None:
+        chave, iv = os.urandom(32), new_iv()
+        assert decrypt(chave, iv, encrypt(chave, iv, b"")) == b""
 
     def test_chave_de_tamanho_errado(self) -> None:
         with pytest.raises(VaultFormatError):
-            encrypt(CipherId.AES256_CBC, os.urandom(16), os.urandom(16), b"x")
+            encrypt(os.urandom(16), os.urandom(16), b"x")
 
     def test_ivs_nao_se_repetem(self) -> None:
-        gerados = {new_iv(CipherId.AES256_CBC) for _ in range(200)}
+        gerados = {new_iv() for _ in range(200)}
         assert len(gerados) == 200
 
 

@@ -52,7 +52,7 @@ identificador `0` encerra a lista.
 
 | ID | Campo             | Tamanho | Conteúdo                                        |
 |---:|-------------------|--------:|-------------------------------------------------|
-|  1 | `CIFRA`           |       1 | `1` = AES-256-CBC, `2` = ChaCha20               |
+|  1 | `CIFRA`           |       1 | `1` = AES-256-CBC (único valor definido)        |
 |  2 | `COMPRESSAO`      |       1 | `0` = nenhuma, `1` = gzip                       |
 |  3 | `PARAMETROS_KDF`  |      12 | memória KiB, iterações, paralelismo (u32 cada)  |
 |  4 | `SAL_MESTRE`      |      32 | sal do Argon2id, sorteado a cada gravação       |
@@ -191,8 +191,8 @@ memória, para que as duas direções não possam divergir.
 8. `os.replace` do temporário sobre o original.
 
 Trocar o sal a cada gravação custa uma derivação Argon2id por salvamento e
-garante que a mesma chave de cifragem nunca seja usada duas vezes — o que, no
-ChaCha20, elimina qualquer risco de reúso de nonce.
+garante que a mesma chave de cifragem nunca seja usada duas vezes — o que
+elimina qualquer risco de reúso do par (chave, IV) no modo CBC.
 
 ## 7. Arquivos irmãos
 

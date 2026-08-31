@@ -6,7 +6,6 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -25,7 +24,6 @@ from PySide6.QtWidgets import (
 
 from arca import APP_NAME, VAULT_SUFFIX
 from arca.controller.vault_controller import VaultController
-from arca.crypto.ciphers import CipherId
 from arca.crypto.kdf import KdfParameters, calibrate
 from arca.crypto.strength import Level, evaluate
 from arca.model.errors import ArcaError
@@ -90,10 +88,6 @@ class NewVaultDialog(QDialog):
         self._repetir.setPlaceholderText("repita a senha mestra")
         self._repetir.textChanged.connect(self._revalidar)
 
-        self._cifra = QComboBox(self)
-        self._cifra.addItem(CipherId.AES256_CBC.rotulo, CipherId.AES256_CBC)
-        self._cifra.addItem(CipherId.CHACHA20.rotulo, CipherId.CHACHA20)
-
         self._memoria = QSpinBox(self)
         self._memoria.setRange(8, 1024)
         self._memoria.setValue(64)
@@ -136,7 +130,6 @@ class NewVaultDialog(QDialog):
         avancado.setCheckable(True)
         avancado.setChecked(False)
         interno = QFormLayout(avancado)
-        interno.addRow("Cifra", self._cifra)
         interno.addRow("Memória do Argon2id", self._memoria)
         interno.addRow("Iterações", self._iteracoes)
         interno.addRow("Threads", self._threads)
@@ -220,7 +213,6 @@ class NewVaultDialog(QDialog):
                     return
 
         opcoes = SaveOptions(
-            cipher=self._cifra.currentData(),
             kdf=KdfParameters(
                 memory_kib=self._memoria.value() * 1024,
                 iterations=self._iteracoes.value(),

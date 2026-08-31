@@ -1,10 +1,15 @@
-"""Cifras simétricas aceitas pelo formato Arca.
+"""Cifragem simétrica do corpo do cofre.
 
-O corpo do cofre é cifrado por uma destas suítes e autenticado à parte, por
-HMAC-SHA256 (esquema encrypt-then-MAC, ver core/hmacblock.py). Separar
+O corpo é cifrado com AES-256 em modo CBC e autenticado à parte, por
+HMAC-SHA256 (esquema encrypt-then-MAC, ver crypto/mac.py). Separar
 confidencialidade de autenticidade é proposital: permite verificar a
 integridade de cada bloco antes de decifrar qualquer coisa, o que reduz a
 superfície exposta a um arquivo malicioso.
+
+O cabeçalho guarda um identificador de cifra, ainda que hoje exista um só.
+O campo não é desperdício: é o que permitiria trocar a suíte no futuro sem
+invalidar os cofres já gravados, e é o que faz um arquivo com identificador
+desconhecido ser recusado de imediato, em vez de decifrado com a suíte errada.
 """
 
 from __future__ import annotations
@@ -23,14 +28,10 @@ TAMANHO_CHAVE = 32
 
 class CipherId(IntEnum):
     AES256_CBC = 1
-    CHACHA20 = 2
 
     @property
     def rotulo(self) -> str:
-        return {
-            CipherId.AES256_CBC: "AES-256 (CBC)",
-            CipherId.CHACHA20: "ChaCha20",
-        }[self]
+        return "AES-256 (CBC)"
 
 
 def parse_cipher_id(valor: int) -> CipherId:
@@ -40,16 +41,9 @@ def parse_cipher_id(valor: int) -> CipherId:
         raise VaultFormatError(f"cifra desconhecida no cabeçalho: {valor}") from exc
 
 
-def new_iv(cipher: CipherId) -> bytes:
-    """Sorteia um IV válido para a suíte.
-
-    No ChaCha20 os 8 primeiros bytes formam o contador de bloco e precisam
-    começar zerados; os 8 restantes são o nonce. Como o sal do KDF é
-    renovado a cada gravação, a chave também muda, e o nonce de 64 bits
-    nunca é reaproveitado sob a mesma chave.
-    """
-    if cipher is CipherId.CHACHA20:
-        return b"\x00" * 8 + os.urandom(8)
+def new_iv() -> bytes:
+    """Sorteia um IV. O sal do KDF também muda a cada gravação, então a
+    chave de cifragem nunca se repete sob o mesmo IV."""
     return os.urandom(TAMANHO_IV)
 
 
@@ -60,29 +54,23 @@ def _validar(chave: bytes, iv: bytes) -> None:
         raise VaultFormatError("o IV deve ter 16 bytes")
 
 
-def encrypt(cipher: CipherId, chave: bytes, iv: bytes, claro: bytes) -> bytes:
+def encrypt(chave: bytes, iv: bytes, claro: bytes) -> bytes:
     _validar(chave, iv)
-    if cipher is CipherId.AES256_CBC:
-        preenchedor = padding.PKCS7(algorithms.AES.block_size).padder()
-        bloco = preenchedor.update(claro) + preenchedor.finalize()
-        ctx = Cipher(algorithms.AES(chave), modes.CBC(iv)).encryptor()
-        return ctx.update(bloco) + ctx.finalize()
-    ctx = Cipher(algorithms.ChaCha20(chave, iv), mode=None).encryptor()
-    return ctx.update(claro)
+    preenchedor = padding.PKCS7(algorithms.AES.block_size).padder()
+    bloco = preenchedor.update(claro) + preenchedor.finalize()
+    ctx = Cipher(algorithms.AES(chave), modes.CBC(iv)).encryptor()
+    return ctx.update(bloco) + ctx.finalize()
 
 
-def decrypt(cipher: CipherId, chave: bytes, iv: bytes, cifrado: bytes) -> bytes:
+def decrypt(chave: bytes, iv: bytes, cifrado: bytes) -> bytes:
     _validar(chave, iv)
-    if cipher is CipherId.AES256_CBC:
-        if len(cifrado) % 16 != 0:
-            raise VaultFormatError("texto cifrado não é múltiplo do bloco AES")
-        ctx = Cipher(algorithms.AES(chave), modes.CBC(iv)).decryptor()
-        bloco = ctx.update(cifrado) + ctx.finalize()
-        removedor = padding.PKCS7(algorithms.AES.block_size).unpadder()
-        try:
-            return removedor.update(bloco) + removedor.finalize()
-        except ValueError as exc:
-            # Com o HMAC já verificado, isso só ocorre em bug de gravação.
-            raise VaultFormatError("preenchimento PKCS#7 inválido") from exc
-    ctx = Cipher(algorithms.ChaCha20(chave, iv), mode=None).decryptor()
-    return ctx.update(cifrado)
+    if len(cifrado) % 16 != 0:
+        raise VaultFormatError("texto cifrado não é múltiplo do bloco AES")
+    ctx = Cipher(algorithms.AES(chave), modes.CBC(iv)).decryptor()
+    bloco = ctx.update(cifrado) + ctx.finalize()
+    removedor = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    try:
+        return removedor.update(bloco) + removedor.finalize()
+    except ValueError as exc:
+        # Com o HMAC já verificado, isso só ocorre em bug de gravação.
+        raise VaultFormatError("preenchimento PKCS#7 inválido") from exc

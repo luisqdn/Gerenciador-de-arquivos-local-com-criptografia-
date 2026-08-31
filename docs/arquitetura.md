@@ -58,7 +58,7 @@ o resto trabalha com objetos.
 | Módulo         | Responsabilidade                                       |
 |----------------|--------------------------------------------------------|
 | `kdf.py`       | Argon2id, chave composta e derivação das chaves        |
-| `ciphers.py`   | AES-256-CBC e ChaCha20                                 |
+| `ciphers.py`   | AES-256-CBC                                            |
 | `mac.py`       | fluxo de blocos autenticados                           |
 | `stream.py`    | keystream ChaCha20 que mascara as senhas no payload    |
 | `secret.py`    | `SecretBytes`, `ProtectedValue` — contenção em memória |

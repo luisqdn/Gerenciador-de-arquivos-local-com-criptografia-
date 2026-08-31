@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from arca.crypto.ciphers import CipherId
 from arca.model import storage
 from arca.model.errors import (
     IntegrityError,
@@ -22,11 +21,10 @@ from .conftest import SENHA_DE_TESTE
 
 
 class TestIdaEVolta:
-    @pytest.mark.parametrize("cifra", list(CipherId))
     @pytest.mark.parametrize("compressao", list(Compression))
     def test_preserva_o_conteudo(self, cofre, caminho_cofre, credenciais, kdf_rapido,
-                                 cifra, compressao) -> None:
-        opcoes = SaveOptions(cipher=cifra, compression=compressao, kdf=kdf_rapido)
+                                 compressao) -> None:
+        opcoes = SaveOptions(compression=compressao, kdf=kdf_rapido)
         storage.save(caminho_cofre, cofre, credenciais, opcoes)
         lido = storage.load(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE)).vault
 
@@ -139,7 +137,6 @@ class TestGravacaoEmDisco:
                                               opcoes) -> None:
         storage.save(caminho_cofre, cofre, credenciais, opcoes)
         cabecalho = storage.inspect(caminho_cofre)
-        assert cabecalho.cipher is opcoes.cipher
         assert cabecalho.kdf == opcoes.kdf
 
     def test_cofre_vazio(self, caminho_cofre, credenciais, opcoes) -> None:

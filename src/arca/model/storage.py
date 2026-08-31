@@ -32,7 +32,7 @@ from io import BytesIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from arca.crypto.ciphers import CipherId, decrypt, encrypt, new_iv
+from arca.crypto.ciphers import decrypt, encrypt, new_iv
 from arca.crypto.kdf import TAMANHO_SAL, KdfParameters, VaultKeys, composite_key, derive
 from arca.crypto.mac import read_blocks, write_blocks
 from arca.crypto.secret import SecretBytes
@@ -86,7 +86,6 @@ class Credentials:
 
 @dataclass(slots=True)
 class SaveOptions:
-    cipher: CipherId = CipherId.AES256_CBC
     compression: Compression = Compression.GZIP
     kdf: KdfParameters = field(default_factory=KdfParameters)
     protect_fields: bool = True
@@ -96,7 +95,6 @@ class SaveOptions:
     def from_header(cls, cabecalho: VaultHeader, **ajustes: object) -> SaveOptions:
         """Reaproveita as escolhas do arquivo aberto ao salvar de novo."""
         base = cls(
-            cipher=cabecalho.cipher,
             compression=cabecalho.compression,
             kdf=cabecalho.kdf,
         )
@@ -117,17 +115,16 @@ def save(caminho: Path, cofre: Vault, credenciais: Credentials,
     """Grava o cofre de forma atômica e devolve o cabeçalho usado."""
     opcoes = opcoes or SaveOptions()
     cabecalho = VaultHeader(
-        cipher=opcoes.cipher,
         compression=opcoes.compression,
         kdf=opcoes.kdf,
         master_salt=os.urandom(TAMANHO_SAL),
-        iv=new_iv(opcoes.cipher),
+        iv=new_iv(),
     )
     chaves = derive(credenciais.composite(), cabecalho.master_salt, cabecalho.kdf)
 
     cofre.metadata.last_saved = agora()
     corpo = _montar_corpo(cofre, cabecalho, opcoes.protect_fields)
-    cifrado = encrypt(cabecalho.cipher, chaves.encryption, cabecalho.iv, corpo)
+    cifrado = encrypt(chaves.encryption, cabecalho.iv, corpo)
 
     crus = cabecalho.to_bytes()
     conteudo = BytesIO()
@@ -164,7 +161,7 @@ def load(caminho: Path, credenciais: Credentials) -> LoadedVault:
         raise InvalidCredentialsError("senha mestra incorreta") from exc
 
     cifrado = read_blocks(fluxo, chaves.hmac_seed)
-    corpo = decrypt(cabecalho.cipher, chaves.encryption, cabecalho.iv, cifrado)
+    corpo = decrypt(chaves.encryption, cabecalho.iv, cifrado)
     cofre = _desmontar_corpo(corpo, cabecalho)
     return LoadedVault(vault=cofre, header=cabecalho, path=caminho)
 

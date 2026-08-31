@@ -15,8 +15,8 @@ tomada. O formato de arquivo está especificado em
 
 ## O que ele faz
 
-- Cofre em arquivo único (`.arca`), cifrado com AES-256 ou ChaCha20 e
-  autenticado por HMAC-SHA256 em blocos.
+- Cofre em arquivo único (`.arca`), cifrado com AES-256 e autenticado por
+  HMAC-SHA256 em blocos.
 - Senha mestra derivada por Argon2id, com parâmetros calibráveis e gravados no
   próprio cofre.
 - Organização em grupos aninhados, com lixeira.
@@ -80,7 +80,7 @@ hardware — vale a pena usá-lo.
 | Componente                | Escolha                                          |
 |---------------------------|--------------------------------------------------|
 | Derivação de chave        | Argon2id (64 MiB, 4 iterações, 4 threads)        |
-| Cifragem                  | AES-256-CBC ou ChaCha20                          |
+| Cifragem                  | AES-256-CBC                                      |
 | Autenticação              | HMAC-SHA256 por bloco, encrypt-then-MAC          |
 | Senhas no payload         | mascaradas por keystream ChaCha20                |
 | Aleatoriedade             | `secrets` e `os.urandom`, nunca `random`         |
@@ -102,7 +102,7 @@ própria por ser o núcleo do trabalho:
 arca/
 ├── src/arca/
 │   ├── model/         os dados: cofre, grupos, entradas, arquivo, busca
-│   ├── crypto/        a segurança: Argon2id, AES/ChaCha20, HMAC, gerador
+│   ├── crypto/        a segurança: Argon2id, AES-256, HMAC, gerador
 │   ├── controller/    a orquestração: sessão do cofre, ciclo da aplicação
 │   ├── view/          a apresentação: janela, diálogos, widgets (PySide6)
 │   └── resources/     listas de palavras
