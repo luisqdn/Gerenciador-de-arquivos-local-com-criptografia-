@@ -1,46 +1,16 @@
-"""Testes do modelo de domínio e da camada de serviço."""
+"""Testes da camada Model e do Controller: árvore, lixeira, busca e sessão."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
 import pytest
 
-from arca.core.errors import ArcaError, VaultBusyError, VaultLockedError
-from arca.core.model import Entry, Group, Vault
-from arca.core.secret import ProtectedValue, SecretBytes
-from arca.core.vault_file import Credentials
-from arca.services.filelock import VaultLock
-from arca.services.vault_service import VaultService
+from arca.controller.vault_controller import VaultController
+from arca.model import search
+from arca.model.errors import ArcaError, VaultLockedError
+from arca.model.storage import Credentials
+from arca.model.vault import Group, Vault
 
 from .conftest import SENHA_DE_TESTE
-
-
-class TestSegredosEmMemoria:
-    def test_valor_protegido_nao_aparece_em_texto(self) -> None:
-        valor = ProtectedValue("s3nh4-secreta")
-        assert "s3nh4" not in repr(valor)
-        assert "s3nh4" not in str(valor)
-        assert valor.reveal() == "s3nh4-secreta"
-
-    def test_valores_iguais_recebem_mascaras_diferentes(self) -> None:
-        a, b = ProtectedValue("igual"), ProtectedValue("igual")
-        assert a._mascarado != b._mascarado
-        assert a == b
-
-    def test_acentos_sobrevivem(self) -> None:
-        assert ProtectedValue("çãõéü").reveal() == "çãõéü"
-
-    def test_segredo_descartado_nao_pode_ser_lido(self) -> None:
-        segredo = SecretBytes.from_text("abc")
-        segredo.wipe()
-        with pytest.raises(ValueError):
-            segredo.value()
-
-    def test_descarte_automatico_no_bloco(self) -> None:
-        with SecretBytes.from_text("abc") as segredo:
-            assert segredo.value() == b"abc"
-        assert len(segredo) == 0
 
 
 class TestArvore:
@@ -63,6 +33,13 @@ class TestArvore:
         with pytest.raises(ValueError):
             cofre.move_group(bancos, filho)
 
+    def test_estatisticas(self, cofre: Vault) -> None:
+        numeros = cofre.stats()
+        assert numeros["entradas"] == 3
+        assert numeros["grupos"] == 2
+
+
+class TestLixeira:
     def test_remocao_manda_para_a_lixeira(self, cofre: Vault) -> None:
         entrada = next(cofre.entries())
         cofre.delete_entry(entrada)
@@ -85,44 +62,44 @@ class TestArvore:
         cofre.delete_group(lixeira)
         assert cofre.find_group(lixeira.uuid) is None
 
-    def test_estatisticas(self, cofre: Vault) -> None:
-        numeros = cofre.stats()
-        assert numeros["entradas"] == 3
-        assert numeros["grupos"] == 2
+
+class TestBusca:
+    def test_termo_livre(self, cofre: Vault) -> None:
+        assert len(search.search(cofre, "banco")) == 1
+
+    def test_filtro_por_campo(self, cofre: Vault) -> None:
+        assert len(search.search(cofre, "usuario:ana")) == 3
+        assert len(search.search(cofre, "usuario:ana.silva")) == 1
+
+    def test_filtros_sao_conjuntivos(self, cofre: Vault) -> None:
+        assert len(search.search(cofre, "usuario:ana url:forum")) == 1
+        assert len(search.search(cofre, "usuario:ana url:inexistente")) == 0
+
+    def test_filtro_por_grupo(self, cofre: Vault) -> None:
+        assert len(search.search(cofre, "grupo:Bancos")) == 1
+
+    def test_busca_e_insensivel_a_caixa(self, cofre: Vault) -> None:
+        assert len(search.search(cofre, "BANCO")) == 1
+
+    def test_senha_nao_e_pesquisavel(self, cofre: Vault) -> None:
+        assert search.search(cofre, "K7#vLm2!qXz9") == []
+
+    def test_lixeira_fica_fora_por_padrao(self, cofre: Vault) -> None:
+        entrada = next(e for e in cofre.entries() if e.title == "Fórum")
+        cofre.delete_entry(entrada)
+        assert search.search(cofre, "forum") == []
+        assert len(search.search(cofre, "forum", incluir_lixeira=True)) == 1
+
+    def test_aspas_desbalanceadas_nao_quebram(self, cofre: Vault) -> None:
+        assert search.search(cofre, 'banco "') is not None
+
+    def test_consulta_vazia_devolve_tudo(self, cofre: Vault) -> None:
+        assert len(search.search(cofre, "")) == 3
 
 
-class TestEntrada:
-    def test_campos_extras(self) -> None:
-        entrada = Entry(title="X")
-        entrada.set_field("PIN", "1234", protegido=True)
-        assert entrada.field_named("pin").value.reveal() == "1234"
-        assert entrada.remove_field("PIN") is True
-        assert entrada.field_named("PIN") is None
-
-    def test_historico_respeita_o_limite(self) -> None:
-        entrada = Entry(title="X", password=ProtectedValue("a"))
-        for i in range(15):
-            entrada.push_history(limite=5)
-            entrada.password = ProtectedValue(f"senha{i}")
-        assert len(entrada.history) == 5
-
-    def test_duplicata_recebe_uuid_novo(self) -> None:
-        original = Entry(title="X", password=ProtectedValue("a"))
-        copia = original.duplicate()
-        assert copia.uuid != original.uuid
-        assert copia.password.reveal() == "a"
-        assert "cópia" in copia.title
-
-    def test_vencimento(self) -> None:
-        entrada = Entry(title="X")
-        assert entrada.times.expired is False
-        entrada.times.expires_at = datetime.now(UTC) - timedelta(days=1)
-        assert entrada.times.expired is True
-
-
-class TestVaultService:
-    def _abrir(self, caminho, cofre, opcoes) -> VaultService:
-        servico = VaultService()
+class TestVaultController:
+    def _abrir(self, caminho, cofre, opcoes) -> VaultController:
+        servico = VaultController()
         servico.create(caminho, Credentials.from_inputs(SENHA_DE_TESTE), opcoes, "Teste")
         servico.vault.root.groups.clear()
         for grupo in cofre.root.groups:
@@ -130,26 +107,25 @@ class TestVaultService:
         return servico
 
     def test_criar_e_reabrir(self, caminho_cofre, opcoes) -> None:
-        servico = VaultService()
+        servico = VaultController()
         servico.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
         assert servico.is_open
         servico.close()
         assert not servico.is_open
 
-        outro = VaultService()
+        outro = VaultController()
         outro.open(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE))
         assert outro.vault.metadata.name == caminho_cofre.stem
         outro.close()
 
     def test_operacao_sem_cofre_aberto(self) -> None:
         with pytest.raises(VaultLockedError):
-            _ = VaultService().vault
+            _ = VaultController().vault
 
-    def test_edicao_empilha_historico(self, caminho_cofre, cofre, opcoes) -> None:
+    def test_edicao_aplica_e_suja_o_cofre(self, caminho_cofre, cofre, opcoes) -> None:
         servico = self._abrir(caminho_cofre, cofre, opcoes)
         entrada = next(servico.vault.entries())
         servico.update_entry(entrada, {"password": "nova-senha"})
-        assert len(entrada.history) == 1
         assert entrada.password.reveal() == "nova-senha"
         assert servico.dirty
         servico.close()
@@ -160,7 +136,6 @@ class TestVaultService:
         entrada = next(servico.vault.entries())
         servico.update_entry(entrada, {"title": entrada.title,
                                        "password": entrada.password.reveal()})
-        assert entrada.history == []
         assert not servico.dirty
         servico.close()
 
@@ -172,79 +147,33 @@ class TestVaultService:
         servico.close()
 
     def test_somente_leitura_recusa_gravacao(self, caminho_cofre, opcoes) -> None:
-        criador = VaultService()
+        criador = VaultController()
         criador.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
         criador.close()
 
-        leitor = VaultService()
+        leitor = VaultController()
         leitor.open(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE),
                     somente_leitura=True)
         with pytest.raises(ArcaError):
             leitor.save()
         leitor.close()
 
-    def test_troca_de_credenciais_pelo_servico(self, caminho_cofre, opcoes) -> None:
-        servico = VaultService()
+    def test_troca_de_credenciais(self, caminho_cofre, opcoes) -> None:
+        servico = VaultController()
         servico.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
         servico.change_credentials(Credentials.from_inputs("outra-senha-longa"), opcoes)
         servico.close()
 
-        reaberto = VaultService()
+        reaberto = VaultController()
         reaberto.open(caminho_cofre, Credentials.from_inputs("outra-senha-longa"))
         reaberto.close()
 
     def test_observadores_recebem_eventos(self, caminho_cofre, opcoes) -> None:
         eventos: list[str] = []
-        servico = VaultService()
+        servico = VaultController()
         servico.subscribe(eventos.append)
         servico.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
         servico.mark_dirty()
         servico.save(opcoes)
         servico.close()
         assert eventos == ["aberto", "modificado", "salvo", "fechado"]
-
-
-class TestTravaDeArquivo:
-    def test_segunda_abertura_e_recusada(self, caminho_cofre, opcoes) -> None:
-        primeiro = VaultService()
-        primeiro.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
-        trava = VaultLock(caminho_cofre)
-        trava.acquire()
-
-        segundo = VaultService()
-        with pytest.raises(VaultBusyError):
-            segundo.open(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE))
-
-        trava.release()
-        segundo.open(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE))
-        segundo.close()
-        primeiro.close()
-
-    def test_somente_leitura_ignora_a_trava(self, caminho_cofre, opcoes) -> None:
-        criador = VaultService()
-        criador.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
-        criador.close()
-
-        with VaultLock(caminho_cofre):
-            leitor = VaultService()
-            leitor.open(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE),
-                        somente_leitura=True)
-            leitor.close()
-
-    def test_trava_orfa_pode_ser_tomada(self, caminho_cofre, opcoes) -> None:
-        import json
-        import socket
-
-        criador = VaultService()
-        criador.create(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE), opcoes)
-        criador.close()
-
-        trava = VaultLock(caminho_cofre)
-        trava.lock_path.write_text(json.dumps({
-            "pid": 999_999_999, "host": socket.gethostname(),
-            "user": "fantasma", "since": "2020-01-01T00:00:00+00:00",
-        }), encoding="utf-8")
-
-        servico = VaultService()
-        servico.open(caminho_cofre, Credentials.from_inputs(SENHA_DE_TESTE))
-        servico.close()

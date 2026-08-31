@@ -20,23 +20,20 @@ classifiers = [
 dependencies = [
     "cryptography>=42.0",
     "argon2-cffi>=23.1",
+    "PySide6>=6.6",
 ]
 
 [project.optional-dependencies]
-gui = ["PySide6>=6.6"]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
 
-[project.scripts]
-arca = "arca.cli.main:main"
-
 [project.gui-scripts]
-arca-gui = "arca.gui.app:main"
+arca = "arca.controller.app_controller:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-arca = ["gui/resources/*.qss", "resources/*.txt"]
+arca = ["view/*.qss", "resources/*.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -53,4 +50,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # As assinaturas dos modelos Qt sao ditadas pela classe base: o valor padrao
 # QModelIndex() faz parte do contrato de QAbstractItemModel e trocar por None
 # quebraria as chamadas vindas do lado C++.
-"src/arca/gui/models/*.py" = ["B008"]
+"src/arca/view/adapters.py" = ["B008"]

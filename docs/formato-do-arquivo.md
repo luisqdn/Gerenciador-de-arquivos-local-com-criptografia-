@@ -2,7 +2,7 @@
 
 Especificação do formato de cofre usado pelo Arca. Todos os inteiros são
 little-endian. A implementação de referência está em
-[`src/arca/core/vault_file.py`](../src/arca/core/vault_file.py).
+[`src/arca/model/storage.py`](../src/arca/model/storage.py).
 
 ## 1. Visão geral
 
@@ -152,15 +152,14 @@ conteúdo).
 {
   "formato": "arca/payload",
   "versao": 1,
-  "meta": { "nome": "...", "lixeira_uuid": "...", "limite_historico": 10 },
+  "meta": { "nome": "...", "lixeira_uuid": "..." },
   "raiz": {
     "uuid": "...", "nome": "Cofre", "tempos": { },
     "entradas": [
       {
         "uuid": "...", "titulo": "Banco", "usuario": "ana",
         "senha": "<base64 do texto mascarado>",
-        "campos": [ { "nome": "PIN", "valor": "<base64>", "protegido": true } ],
-        "historico": [ ]
+        "url": "https://banco.example", "notas": ""
       }
     ],
     "grupos": [ ]
@@ -170,16 +169,14 @@ conteúdo).
 
 ### 5.3 Ordem de aplicação do keystream
 
-Os campos protegidos são mascarados por um keystream ChaCha20 **sequencial**.
-Produtor e consumidor precisam percorrê-los na mesma ordem, que é:
+As senhas são mascaradas por um keystream ChaCha20 **sequencial**. Produtor
+e consumidor precisam percorrê-las na mesma ordem, que é:
 
 1. para cada grupo, primeiro as suas entradas, na ordem em que aparecem;
-2. para cada entrada: a senha, depois cada campo extra marcado como protegido,
-   depois cada versão do histórico, recursivamente;
-3. só então os subgrupos, na ordem em que aparecem.
+2. só então os subgrupos, na ordem em que aparecem, recursivamente.
 
 O percurso é feito sobre o próprio dicionário serializado
-([`core/codec.py`](../src/arca/core/codec.py)), e não sobre o modelo em
+([`model/codec.py`](../src/arca/model/codec.py)), e não sobre o modelo em
 memória, para que as duas direções não possam divergir.
 
 ## 6. Gravação
@@ -203,4 +200,3 @@ ChaCha20, elimina qualquer risco de reúso de nonce.
 |--------------|--------------------------------------------------------------|
 | `.arca`      | o cofre                                                      |
 | `.arca.bak`  | estado imediatamente anterior à última gravação              |
-| `.arca.lock` | trava consultiva: quem abriu, em qual máquina e desde quando |

@@ -6,9 +6,8 @@ o que o Arca defende, o que ele não defende e por quê.
 
 ## 1. O que está sendo protegido
 
-O conteúdo do arquivo `.arca`: títulos, usuários, senhas, endereços, notas,
-campos personalizados e o histórico de versões. A estrutura de grupos e o
-número de entradas também ficam cifrados. **Não** ficam protegidos: o tamanho
+O conteúdo do arquivo `.arca`: títulos, usuários, senhas, endereços e notas.
+A estrutura de grupos e o número de entradas também ficam cifrados. **Não** ficam protegidos: o tamanho
 aproximado do cofre, a data de modificação do arquivo e os parâmetros
 criptográficos escolhidos, todos visíveis no cabeçalho em claro.
 
@@ -48,34 +47,26 @@ A gravação é atômica: arquivo temporário no mesmo diretório, `fsync`,
 substituição por `os.replace`. Uma interrupção deixa o cofre anterior intacto.
 O estado imediatamente anterior fica também em `.arca.bak`.
 
-### 2.4 Sobrescrita entre duas janelas
-
-Duas instâncias abrem o mesmo cofre; a segunda a salvar apaga o trabalho da
-primeira.
-
-Uma trava consultiva em `.arca.lock` registra quem abriu, em qual máquina e
-desde quando. É consultiva: nada impede que outro programa ignore o arquivo.
-Travas deixadas por processos locais que já terminaram são detectadas e podem
-ser tomadas sem intervenção.
-
-### 2.5 Vazamento pela área de transferência
+### 2.4 Vazamento pela área de transferência
 
 A senha copiada permanece disponível a qualquer processo, e gerenciadores de
 histórico de transferência a guardam indefinidamente.
 
-A interface limpa a área de transferência depois de um tempo configurável
-(20 s por padrão) e só limpa se o conteúdo ainda for o que ela colocou lá.
-Isso reduz a janela; não a fecha.
+A interface limpa a área de transferência 20 segundos depois da cópia, e só
+limpa se o conteúdo ainda for o que ela colocou lá. Isso reduz a janela;
+não a fecha.
 
-### 2.6 Acesso oportunista à máquina destravada
+### 2.5 Acesso oportunista à máquina destravada
 
 Alguém se senta ao computador com o Arca aberto.
 
-O cofre tranca após um período de inatividade (5 minutos por padrão),
-descartando modelo, chaves e credenciais. Senhas nunca aparecem na tela sem
-uma ação explícita, e a busca não pesquisa dentro de senhas nem de campos
-protegidos — permitir isso daria a quem estiver de passagem uma forma de
-confirmar palpites sem nada aparecer na tela.
+Trancar o cofre (`Ctrl+L`) descarta modelo, chaves e credenciais de uma vez.
+Senhas nunca aparecem na tela sem uma ação explícita, e a busca não pesquisa
+dentro de senhas — permitir isso daria a quem estiver de passagem uma forma
+de confirmar palpites sem nada aparecer na tela.
+
+O bloqueio automático por inatividade foi removido junto com as demais
+funcionalidades acessórias: trancar é uma ação do usuário.
 
 ## 3. Ameaças não cobertas
 
@@ -115,14 +106,6 @@ Perder a senha mestra significa perder o cofre. Não há recuperação, backdoor
 segurança — a existência de qualquer uma delas seria exatamente a brecha que o
 projeto tenta não ter.
 
-### 3.6 Exportação em CSV
-
-O CSV exportado não tem proteção nenhuma. É um recurso deliberado — um cofre
-que aprisiona os dados do dono é pior, não melhor —, mas transfere a
-responsabilidade: as duas interfaces exigem confirmação explícita e avisam para
-apagar o arquivo. `porting.secure_delete` sobrescreve antes de remover, o que
-em SSD e em sistemas com journaling é higiene, e não garantia.
-
 ## 4. Escolhas criptográficas e o porquê
 
 | Decisão                          | Motivo                                                                 |
@@ -134,7 +117,7 @@ em SSD e em sistemas com journaling é higiene, e não garantia.
 | HMAC por bloco com subchave      | detecta reordenação, duplicação e truncamento, não só alteração        |
 | Domínios `0x01`/`0x02`           | separa chave de cifragem da semente de HMAC                            |
 | Byte de presença de fator        | evita que arranjos distintos de fator colidam na chave composta        |
-| Keystream nos campos protegidos  | payload em memória e em `.bak` não expõe senhas em texto claro         |
+| Keystream sobre as senhas        | payload em memória e em `.bak` não expõe senhas em texto claro         |
 | `secrets`, nunca `random`        | o Mersenne Twister é previsível a partir de poucas centenas de saídas  |
 
 ## 5. Premissas

@@ -1,19 +1,39 @@
-"""Testes das primitivas criptográficas e da derivação de chaves."""
+"""Testes da camada de criptografia.
+
+Primitivas (cifras, KDF, blocos autenticados, keystream), contenção de
+segredos em memória, geração e avaliação de senhas.
+"""
 
 from __future__ import annotations
 
 import hashlib
+import math
 import os
+import re
 from io import BytesIO
 
 import pytest
 
-from arca.core.ciphers import CipherId, decrypt, encrypt, new_iv
-from arca.core.errors import IntegrityError, VaultFormatError
-from arca.core.hmacblock import read_blocks, write_blocks
-from arca.core.kdf import KdfParameters, transform
-from arca.core.keys import block_key, composite_key, derive
-from arca.core.protectedstream import KeystreamCipher
+from arca.crypto.ciphers import CipherId, decrypt, encrypt, new_iv
+from arca.crypto.generator import (
+    AMBIGUOS,
+    DIGITOS,
+    MAIUSCULAS,
+    MINUSCULAS,
+    SIMBOLOS,
+    PassphraseRecipe,
+    PasswordRecipe,
+    generate_passphrase,
+    generate_password,
+    generate_pin,
+)
+from arca.crypto.kdf import KdfParameters, block_key, composite_key, derive, transform
+from arca.crypto.mac import read_blocks, write_blocks
+from arca.crypto.secret import ProtectedValue, SecretBytes
+from arca.crypto.stream import KeystreamCipher
+from arca.crypto.strength import Level, evaluate, format_duration
+from arca.crypto.wordlists import common_passwords, wordlist
+from arca.model.errors import IntegrityError, VaultFormatError
 
 
 class TestCifras:
@@ -164,3 +184,151 @@ class TestKeystream:
     def test_chave_precisa_de_32_bytes(self) -> None:
         with pytest.raises(ValueError):
             KeystreamCipher(b"curta")
+
+
+class TestSegredosEmMemoria:
+    def test_valor_protegido_nao_aparece_em_texto(self) -> None:
+        valor = ProtectedValue("s3nh4-secreta")
+        assert "s3nh4" not in repr(valor)
+        assert "s3nh4" not in str(valor)
+        assert valor.reveal() == "s3nh4-secreta"
+
+    def test_valores_iguais_recebem_mascaras_diferentes(self) -> None:
+        a, b = ProtectedValue("igual"), ProtectedValue("igual")
+        assert a._mascarado != b._mascarado
+        assert a == b
+
+    def test_acentos_sobrevivem(self) -> None:
+        assert ProtectedValue("çãõéü").reveal() == "çãõéü"
+
+    def test_segredo_descartado_nao_pode_ser_lido(self) -> None:
+        segredo = SecretBytes.from_text("abc")
+        segredo.wipe()
+        with pytest.raises(ValueError):
+            segredo.value()
+
+    def test_descarte_automatico_no_bloco(self) -> None:
+        with SecretBytes.from_text("abc") as segredo:
+            assert segredo.value() == b"abc"
+        assert len(segredo) == 0
+
+
+class TestGerador:
+    @pytest.mark.parametrize("tamanho", [8, 16, 32, 64, 128])
+    def test_respeita_o_comprimento(self, tamanho: int) -> None:
+        assert len(generate_password(PasswordRecipe(length=tamanho))) == tamanho
+
+    def test_usa_todos_os_conjuntos_quando_exigido(self) -> None:
+        for _ in range(30):
+            senha = generate_password(PasswordRecipe(length=12, require_each_set=True))
+            assert any(c in MINUSCULAS for c in senha)
+            assert any(c in MAIUSCULAS for c in senha)
+            assert any(c in DIGITOS for c in senha)
+            assert any(c in SIMBOLOS for c in senha)
+
+    def test_exclusao_de_ambiguos(self) -> None:
+        senha = generate_password(PasswordRecipe(length=64, exclude_similar=True))
+        assert not set(senha) & set(AMBIGUOS)
+
+    def test_exclusao_explicita(self) -> None:
+        senha = generate_password(PasswordRecipe(length=64, excluded="aeiou"))
+        assert not set(senha) & set("aeiou")
+
+    def test_conjunto_unico(self) -> None:
+        receita = PasswordRecipe(length=20, uppercase=False, digits=False, symbols=False)
+        assert set(generate_password(receita)) <= set(MINUSCULAS)
+
+    def test_sem_conjunto_algum_falha(self) -> None:
+        receita = PasswordRecipe(lowercase=False, uppercase=False,
+                                 digits=False, symbols=False)
+        with pytest.raises(ValueError):
+            generate_password(receita)
+
+    def test_curta_demais_para_exigir_todos(self) -> None:
+        with pytest.raises(ValueError):
+            generate_password(PasswordRecipe(length=3, require_each_set=True))
+
+    def test_senhas_nao_se_repetem(self) -> None:
+        geradas = {generate_password(PasswordRecipe(length=20)) for _ in range(200)}
+        assert len(geradas) == 200
+
+    def test_entropia_bate_com_o_alfabeto(self) -> None:
+        receita = PasswordRecipe(length=20, require_each_set=False)
+        esperado = 20 * math.log2(len(receita.alphabet()))
+        assert receita.entropy_bits() == pytest.approx(esperado)
+
+    def test_pin_so_tem_digitos(self) -> None:
+        assert re.fullmatch(r"\d{6}", generate_pin(6))
+        with pytest.raises(ValueError):
+            generate_pin(2)
+
+
+class TestFraseSenha:
+    def test_estrutura(self) -> None:
+        frase = generate_passphrase(PassphraseRecipe(words=6, separator="."))
+        assert len(frase.split(".")) == 6
+
+    def test_todas_as_palavras_vem_da_lista(self) -> None:
+        vocabulario = set(wordlist())
+        frase = generate_passphrase(PassphraseRecipe(words=8))
+        assert set(frase.split("-")) <= vocabulario
+
+    def test_lista_tem_exatamente_512_palavras_unicas(self) -> None:
+        palavras = wordlist()
+        assert len(palavras) == 512
+        assert len(set(palavras)) == 512
+        assert all(p.isascii() and p.isalpha() and p.islower() for p in palavras)
+
+    def test_entropia_de_nove_bits_por_palavra(self) -> None:
+        assert PassphraseRecipe(words=5).entropy_bits() == pytest.approx(45.0)
+
+    def test_digitos_ao_final(self) -> None:
+        frase = generate_passphrase(PassphraseRecipe(words=3, append_digits=4))
+        assert re.fullmatch(r"\d{4}", frase.split("-")[-1])
+
+    def test_capitalizacao(self) -> None:
+        frase = generate_passphrase(PassphraseRecipe(words=4, capitalize=True))
+        assert all(palavra[0].isupper() for palavra in frase.split("-"))
+
+
+class TestForca:
+    @pytest.mark.parametrize("senha", ["123456", "senha", "password", "qwerty", "abc123"])
+    def test_senhas_de_vazamento_sao_muito_fracas(self, senha: str) -> None:
+        assert evaluate(senha).level is Level.MUITO_FRACA
+
+    def test_senha_gerada_e_forte(self) -> None:
+        avaliacao = evaluate(generate_password(PasswordRecipe(length=20)))
+        assert avaliacao.level >= Level.BOA
+
+    def test_repeticao_nao_engana(self) -> None:
+        assert evaluate("abcabcabcabcabcabc").bits < evaluate("k7Rq!2wPx#9Zm").bits
+
+    def test_sequencia_nao_engana(self) -> None:
+        assert evaluate("abcdefghijklmnop").bits < 40
+
+    def test_estimativa_de_frase_fica_acima_da_real(self) -> None:
+        receita = PassphraseRecipe(words=6)
+        frase = generate_passphrase(receita)
+        estimada = evaluate(frase).bits
+        assert receita.entropy_bits() <= estimada <= receita.entropy_bits() * 1.5
+
+    def test_senha_vazia(self) -> None:
+        avaliacao = evaluate("")
+        assert avaliacao.bits == 0
+        assert avaliacao.level is Level.MUITO_FRACA
+
+    def test_pontuacao_fica_na_faixa(self) -> None:
+        for senha in ["a", "123456", "Trovao#Marmelo92", generate_password()]:
+            assert 0 <= evaluate(senha).score <= 100
+
+    def test_lista_de_senhas_comuns_carrega(self) -> None:
+        comuns = common_passwords()
+        assert "123456" in comuns
+        assert "flamengo" in comuns
+        assert len(comuns) > 100
+
+    @pytest.mark.parametrize("segundos,esperado", [
+        (0.4, "menos de um segundo"), (1, "1 segundo"), (90, "2 minutos"),
+    ])
+    def test_formatacao_de_duracao(self, segundos: float, esperado: str) -> None:
+        assert format_duration(segundos) == esperado

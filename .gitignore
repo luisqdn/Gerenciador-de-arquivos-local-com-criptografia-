@@ -11,5 +11,4 @@ htmlcov/
 .ruff_cache/
 *.arca
 *.arca.bak
-*.arca.lock
 *.chave

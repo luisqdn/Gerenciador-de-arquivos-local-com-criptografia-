@@ -12,10 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from arca.core.kdf import MEMORIA_MINIMA_KIB, KdfParameters
-from arca.core.model import Entry, Group, Vault
-from arca.core.secret import ProtectedValue
-from arca.core.vault_file import Credentials, SaveOptions
+from arca.crypto.kdf import MEMORIA_MINIMA_KIB, KdfParameters
+from arca.crypto.secret import ProtectedValue
+from arca.model.storage import Credentials, SaveOptions
+from arca.model.vault import Entry, Group, Vault
 
 SENHA_DE_TESTE = "cofre-de-teste-92#"
 
@@ -37,20 +37,17 @@ def credenciais() -> Credentials:
 
 @pytest.fixture
 def cofre() -> Vault:
-    """Cofre com alguma estrutura: dois grupos, três entradas, um campo extra."""
+    """Cofre com alguma estrutura: dois grupos e três entradas."""
     vault = Vault(root=Group(name="Raiz"))
     bancos = vault.root.add_group(Group(name="Bancos"))
     internet = vault.root.add_group(Group(name="Internet"))
 
-    banco = bancos.add_entry(Entry(
+    bancos.add_entry(Entry(
         title="Banco Exemplo",
         username="ana.silva",
         password=ProtectedValue("K7#vLm2!qXz9"),
         url="https://banco.example",
-        tags=["financeiro"],
     ))
-    banco.set_field("Agência", "0001")
-    banco.set_field("Token", "998877", protegido=True)
 
     internet.add_entry(Entry(
         title="Fórum",
