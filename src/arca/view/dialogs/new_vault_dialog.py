@@ -28,6 +28,7 @@ from arca.crypto.kdf import KdfParameters, calibrate
 from arca.crypto.strength import Level, evaluate
 from arca.model.errors import ArcaError
 from arca.model.storage import Credentials, SaveOptions
+from arca.view.dialogs.generator_dialog import pedir_senha_gerada
 from arca.view.widgets.password_edit import PasswordEdit
 
 BITS_RECOMENDADOS = 60
@@ -82,6 +83,7 @@ class NewVaultDialog(QDialog):
         self._senha = PasswordEdit(self, com_copia=False)
         self._senha.set_placeholder("senha mestra")
         self._senha.changed.connect(self._revalidar)
+        self._senha.generate_requested.connect(self._gerar_senha_mestra)
 
         self._repetir = QLineEdit(self)
         self._repetir.setEchoMode(QLineEdit.EchoMode.Password)
@@ -148,6 +150,18 @@ class NewVaultDialog(QDialog):
 
     def service(self) -> VaultController | None:
         return self._servico
+
+    def _gerar_senha_mestra(self) -> None:
+        gerada = pedir_senha_gerada(self, frase=True)
+        if not gerada:
+            return
+        self._senha.set_text(gerada)
+        # Repetir uma senha que o usuário não digitou não confirma nada, e
+        # revelar é o que permite anotá-la antes de fechar a janela -- não
+        # há recuperação depois.
+        self._repetir.setText(gerada)
+        self._senha.reveal(True)
+        self._revalidar()
 
     # ------------------------------------------------------------------
 

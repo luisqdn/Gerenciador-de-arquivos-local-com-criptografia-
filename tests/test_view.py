@@ -30,6 +30,8 @@ from arca.view.adapters import Coluna, EntryTableModel, GroupTreeModel  # noqa: 
 from arca.view.clipboard import ClipboardService  # noqa: E402
 from arca.view.dialogs.entry_dialog import EntryDialog  # noqa: E402
 from arca.view.dialogs.generator_dialog import GeneratorDialog  # noqa: E402
+from arca.view.dialogs.master_key_dialog import MasterKeyDialog  # noqa: E402
+from arca.view.dialogs.new_vault_dialog import NewVaultDialog  # noqa: E402
 from arca.view.main_window import MainWindow  # noqa: E402
 from arca.view.theme import carregar_estilo  # noqa: E402
 from arca.view.widgets.detail_panel import DetailPanel  # noqa: E402
@@ -218,6 +220,58 @@ class TestDialogos:
         assert dialogo._monitor.elevada
         dialogo.close()
         assert not dialogo._monitor.elevada
+
+    def test_gerador_abre_na_aba_de_frase_quando_pedido(self, gerador) -> None:
+        assert gerador(frase=True)._abas.currentIndex() == 1
+
+
+class TestBotaoGerarDaSenhaMestra:
+    """O botão existia e não estava ligado a nada em nenhum dos dois diálogos.
+
+    Um sinal sem destino não quebra teste nenhum e não levanta exceção: o
+    clique simplesmente não faz nada. Por isso o teste verifica a fiação, e
+    não só a construção da janela.
+    """
+
+    FRASE = "trovao-marmelo-vento-cristal-porta"
+
+    def test_novo_cofre_preenche_os_dois_campos(self, app, monkeypatch, tmp_path) -> None:
+        import arca.view.dialogs.new_vault_dialog as modulo
+
+        monkeypatch.setattr(modulo, "pedir_senha_gerada", lambda *a, **k: self.FRASE)
+        dialogo = NewVaultDialog()
+        dialogo._arquivo.setText(str(tmp_path / "novo.arca"))
+
+        dialogo._senha.generate_requested.emit()
+
+        assert dialogo._senha.text() == self.FRASE
+        assert dialogo._repetir.text() == self.FRASE
+        dialogo.close()
+
+    def test_novo_cofre_respeita_o_cancelamento(self, app, monkeypatch) -> None:
+        import arca.view.dialogs.new_vault_dialog as modulo
+
+        monkeypatch.setattr(modulo, "pedir_senha_gerada", lambda *a, **k: None)
+        dialogo = NewVaultDialog()
+        dialogo._senha.set_text("digitada-a-mao")
+
+        dialogo._senha.generate_requested.emit()
+
+        assert dialogo._senha.text() == "digitada-a-mao"
+        dialogo.close()
+
+    def test_trocar_senha_mestra_preenche_os_dois_campos(self, app, monkeypatch,
+                                                         tmp_path, kdf_rapido) -> None:
+        import arca.view.dialogs.master_key_dialog as modulo
+
+        monkeypatch.setattr(modulo, "pedir_senha_gerada", lambda *a, **k: self.FRASE)
+        dialogo = MasterKeyDialog(kdf_rapido, tmp_path / "x.arca")
+
+        dialogo._senha.generate_requested.emit()
+
+        assert dialogo._senha.text() == self.FRASE
+        assert dialogo._repetir.text() == self.FRASE
+        dialogo.close()
 
     def test_dialogo_de_entrada_devolve_alteracoes(self, app, servico) -> None:
         entrada = next(servico.vault.entries())

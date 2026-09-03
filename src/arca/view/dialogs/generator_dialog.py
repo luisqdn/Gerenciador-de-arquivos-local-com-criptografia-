@@ -117,7 +117,8 @@ class GeneratorDialog(QDialog):
     # pelo Qt automaticamente.
     _pedido = Signal(int, object)
 
-    def __init__(self, parent: QWidget | None = None, comprimento: int = 20) -> None:
+    def __init__(self, parent: QWidget | None = None, comprimento: int = 20,
+                 frase: bool = False) -> None:
         super().__init__(parent)
         self.setWindowTitle("Gerador de senhas")
         self.setMinimumWidth(520)
@@ -182,6 +183,10 @@ class GeneratorDialog(QDialog):
         leiaute.addWidget(self._abas, 1)
         leiaute.addWidget(botoes)
 
+        # A troca de aba dispara `regenerate`, então só pode acontecer depois
+        # que a thread e o contador de sequência existem.
+        if frase:
+            self._abas.setCurrentIndex(1)
         self._painel.mostrar_no_canto()
         self.regenerate()
 
@@ -354,9 +359,16 @@ class GeneratorDialog(QDialog):
         )
 
 
-def pedir_senha_gerada(parent: QWidget | None, comprimento: int = 20) -> str | None:
-    """Abre o gerador e devolve a senha escolhida, ou None se cancelado."""
-    dialogo = GeneratorDialog(parent, comprimento)
+def pedir_senha_gerada(parent: QWidget | None, comprimento: int = 20,
+                       frase: bool = False) -> str | None:
+    """Abre o gerador e devolve a senha escolhida, ou None se cancelado.
+
+    `frase=True` abre já na aba de frase-senha. É o padrão certo para a
+    senha mestra: ela é a única que o usuário precisa memorizar, e uma
+    sequência aleatória de vinte símbolos ou vai para um papel ou vira uma
+    senha fraca escolhida no lugar dela.
+    """
+    dialogo = GeneratorDialog(parent, comprimento, frase=frase)
     if dialogo.exec() == QDialog.DialogCode.Accepted and dialogo.password():
         return dialogo.password()
     return None

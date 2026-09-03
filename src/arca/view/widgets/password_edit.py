@@ -83,6 +83,10 @@ class PasswordEdit(QWidget):
     def set_placeholder(self, texto: str) -> None:
         self._campo.setPlaceholderText(texto)
 
+    def reveal(self, visivel: bool = True) -> None:
+        """Mostra ou esconde a senha, mantendo o botão em sincronia."""
+        self._olho.setChecked(visivel)
+
     def line_edit(self) -> QLineEdit:
         return self._campo
 
