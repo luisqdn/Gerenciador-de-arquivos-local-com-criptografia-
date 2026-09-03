@@ -13,6 +13,7 @@ os dois casos com a mesma régua, e o contraste entre eles é o ponto.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from dataclasses import dataclass
 
@@ -98,14 +99,29 @@ def _faxina(thread: QThread, sorteador: QObject, painel: PerfPanel,
     apontando para um objeto morto. Como a `QThread` não é filha do diálogo,
     ela continua viva aqui e ainda dá para pará-la com ordem.
     """
+    feito = False
+
     def limpar(*_) -> None:
-        if thread.isRunning():
-            thread.quit()
-            thread.wait(LIMITE_DE_ESPERA_MS)
+        # Roda duas vezes no caminho normal: uma ao fechar o diálogo, outra
+        # quando `destroyed` dispara. A segunda encontraria objetos já
+        # recolhidos, então a primeira fecha a porta.
+        nonlocal feito
+        if feito:
+            return
+        feito = True
+        try:
+            if thread.isRunning():
+                thread.quit()
+                thread.wait(LIMITE_DE_ESPERA_MS)
+        except RuntimeError:
+            # Lado C++ já destruído: acontece quando o interpretador está
+            # encerrando e recolhe os objetos em ordem própria.
+            pass
         monitor.restaurar()
-        painel.close()
-        painel.deleteLater()
-        sorteador.deleteLater()
+        with contextlib.suppress(RuntimeError):
+            painel.close()
+            painel.deleteLater()
+            sorteador.deleteLater()
 
     return limpar
 

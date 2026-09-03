@@ -8,13 +8,18 @@ formato de um HUD. Ela não calcula nada: pergunta os números ao
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFontDatabase, QGuiApplication
+from PySide6.QtGui import QFontDatabase, QFontMetrics, QGuiApplication
 from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QWidget
 
 from arca.controller.perf import ProcessMonitor, formatar_bytes
 
 INTERVALO_MS = 250
 MARGEM = 18
+
+# O valor mais largo que a coluna da direita chega a exibir. Reservar essa
+# largura desde o início evita que o painel cresça depois de posicionado --
+# ele cresceria para a direita, para fora da tela.
+VALOR_MAIS_LARGO = "gerador-de-senhas"
 
 _ESTILO = """
 QFrame#painelDesempenho {
@@ -48,6 +53,7 @@ class PerfPanel(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
         mono = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
+        self._largura_do_valor = QFontMetrics(mono).horizontalAdvance(VALOR_MAIS_LARGO)
 
         titulo = QLabel("Desempenho da geração", self)
         titulo.setObjectName("tituloDesempenho")
@@ -89,6 +95,7 @@ class PerfPanel(QFrame):
         rotulo = QLabel("—", self)
         rotulo.setObjectName("valorDesempenho")
         rotulo.setFont(fonte)
+        rotulo.setMinimumWidth(self._largura_do_valor)
         rotulo.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         return rotulo
 
@@ -113,16 +120,29 @@ class PerfPanel(QFrame):
         self._thread.setText(thread)
         self._duracao.setText(_formatar_duracao(nanos))
         self._atualizar_memoria()
+        if self.isVisible():
+            self._reposicionar()
 
     def mostrar_no_canto(self) -> None:
         """Encosta a janelinha no canto superior direito da tela."""
-        self.adjustSize()
-        tela = QGuiApplication.primaryScreen()
-        if tela is not None:
-            area = tela.availableGeometry()
-            self.move(area.right() - self.width() - MARGEM, area.top() + MARGEM)
+        self._reposicionar()
         self.show()
         self._relogio.start(INTERVALO_MS)
+
+    def _reposicionar(self) -> None:
+        """Recosta o painel no canto, sem deixá-lo sair da tela.
+
+        O limite inferior em `max` é o que importa: se o painel ficar mais
+        largo que o previsto, é melhor encostá-lo na borda esquerda da área
+        útil do que deixá-lo transbordar pela direita, onde some.
+        """
+        self.adjustSize()
+        tela = QGuiApplication.primaryScreen()
+        if tela is None:
+            return
+        area = tela.availableGeometry()
+        x = max(area.left(), area.right() - self.width() - MARGEM)
+        self.move(x, area.top() + MARGEM)
 
     def closeEvent(self, evento) -> None:  # noqa: N802 (API do Qt)
         self._relogio.stop()
