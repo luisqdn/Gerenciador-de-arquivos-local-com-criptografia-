@@ -26,6 +26,8 @@ tomada. O formato de arquivo está especificado em
 - Busca com filtros (`usuario:ana url:gov.br`), que nunca pesquisa dentro de
   senhas.
 - Limpeza temporizada da área de transferência.
+- Sorteio em thread dedicada de prioridade elevada, com um painel de
+  desempenho que mostra memória e tempo medidos durante a geração.
 
 ## Instalação
 
@@ -71,7 +73,7 @@ hardware — vale a pena usá-lo.
 | `Ctrl+U` | abrir o endereço            |
 | `Ctrl+G` | novo grupo                  |
 | `F2`     | renomear grupo              |
-| `Ctrl+P` | gerador de senhas           |
+| `Ctrl+P` | gerador de senhas (abre o painel de desempenho) |
 | `Ctrl+S` | salvar                      |
 | `Ctrl+L` | trancar o cofre             |
 

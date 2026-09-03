@@ -65,6 +65,26 @@ def janela(app: QApplication, servico: VaultController) -> MainWindow:
     janela.close()
 
 
+@pytest.fixture
+def gerador(app: QApplication):
+    """Cria GeneratorDialogs e garante que todos sejam fechados.
+
+    Não é zelo decorativo: o diálogo carrega uma QThread, e um objeto desses
+    destruído pelo coletor de lixo com a thread ainda rodando derruba o
+    processo inteiro -- o Qt trata isso como erro fatal, não como aviso.
+    """
+    abertos = []
+
+    def criar(**kw) -> GeneratorDialog:
+        dialogo = GeneratorDialog(**kw)
+        abertos.append(dialogo)
+        return dialogo
+
+    yield criar
+    for dialogo in abertos:
+        dialogo.close()
+
+
 class TestAdaptadoresQt:
     def test_arvore_reflete_a_hierarquia(self, app, servico) -> None:
         modelo = GroupTreeModel(servico.vault)
@@ -170,17 +190,34 @@ class TestWidgets:
 
 
 class TestDialogos:
-    def test_gerador_produz_senha_valida(self, app) -> None:
-        dialogo = GeneratorDialog(comprimento=24)
+    def test_gerador_produz_senha_valida(self, gerador) -> None:
+        dialogo = gerador(comprimento=24)
         assert len(dialogo.password()) == 24
         anterior = dialogo.password()
         dialogo.regenerate()
         assert dialogo.password() != anterior
 
-    def test_gerador_em_modo_frase(self, app) -> None:
-        dialogo = GeneratorDialog()
+    def test_gerador_em_modo_frase(self, gerador) -> None:
+        dialogo = gerador()
         dialogo._abas.setCurrentIndex(1)
         assert "-" in dialogo.password()
+
+    def test_gerador_sorteia_fora_da_thread_da_interface(self, gerador) -> None:
+        from PySide6.QtCore import QThread
+
+        from arca.view.dialogs.generator_dialog import NOME_DA_THREAD
+
+        dialogo = gerador()
+        dialogo.password()
+        # O painel só recebe o nome da thread que de fato executou o sorteio.
+        assert dialogo._painel._thread.text() == NOME_DA_THREAD
+        assert QThread.currentThread().objectName() != NOME_DA_THREAD
+
+    def test_gerador_devolve_a_prioridade_ao_fechar(self, gerador) -> None:
+        dialogo = gerador()
+        assert dialogo._monitor.elevada
+        dialogo.close()
+        assert not dialogo._monitor.elevada
 
     def test_dialogo_de_entrada_devolve_alteracoes(self, app, servico) -> None:
         entrada = next(servico.vault.entries())

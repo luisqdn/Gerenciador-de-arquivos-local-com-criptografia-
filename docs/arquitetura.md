@@ -81,11 +81,15 @@ e semente de HMAC (SHA-512 com bytes de domínio distintos).
 - **`app_controller.py`** — o ciclo da aplicação. Alterna entre cofre
   trancado, com a tela de destravamento, e cofre aberto, com a janela
   principal.
+- **`perf.py`** — memória residente e classe de prioridade do processo.
+  Está aqui, e não na View, porque é estado do processo: a View só
+  pergunta os números e os desenha em `view/perf_panel.py`.
 
 ## `arca.view` — a apresentação
 
 ```
 main_window.py         janela de três painéis
+perf_panel.py          HUD de memória e tempo, no canto da tela
 adapters.py            GroupTreeModel e EntryTableModel sobre o domínio
 clipboard.py           área de transferência temporizada
 theme.py + tema.qss    estilo Fusion com ajustes pontuais
@@ -93,7 +97,7 @@ dialogs/               abertura, criação, entrada, gerador, senha mestra
 widgets/               campo de senha, barra de força, painel de detalhes
 ```
 
-Três decisões que valem registro:
+Quatro decisões que valem registro:
 
 **Os adaptadores Qt envolvem o domínio, não o copiam.** `GroupTreeModel` usa
 o próprio objeto `Group` como ponteiro interno do índice. Isso só é seguro
@@ -104,6 +108,13 @@ estiver aberto — ao trancar, modelo e janela são descartados juntos.
 milissegundos; feita na thread da interface, congelaria a janela justamente no
 momento em que o usuário mais espera retorno. Abertura e criação rodam em
 `QThread`, com barra de progresso indeterminada.
+
+**A thread do gerador é demonstrativa, e o código diz isso.** O sorteio de
+uma senha custa microssegundos, então despachá-lo para outra thread não
+economiza tempo -- o painel de desempenho mostra exatamente isso, medido.
+O mesmo mecanismo em `unlock_dialog.py` é indispensável, porque lá a conta
+é um Argon2id de centenas de milissegundos. Ter os dois lado a lado, com a
+mesma régua, é mais instrutivo do que ter só o caso que dá certo.
 
 **Trancar não encerra o programa.** O controlador desliga
 `quitOnLastWindowClosed` e gerencia o encerramento explicitamente, para que a
