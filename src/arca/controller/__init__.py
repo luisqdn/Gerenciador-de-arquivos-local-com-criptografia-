@@ -5,5 +5,5 @@ credenciais que a próxima gravação vai precisar, o estado "não salvo" -- e
 concentra as regras de mutação. `app_controller` alterna a aplicação entre
 destravado e trancado.
 
-A View nunca fala com `model.storage` diretamente. Passa por aqui.
+A View nunca fala com `model.armazenamento` diretamente. Passa por aqui.
 """

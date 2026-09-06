@@ -1,0 +1,57 @@
+@startuml diagrama-de-casos-de-uso
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor Usuário as usuario
+
+rectangle "Arca - Gerenciador de Senhas" {
+  usecase "Criar cofre" as UC01
+  usecase "Destravar cofre" as UC02
+  usecase "Trancar cofre" as UC03
+  usecase "Salvar cofre" as UC04
+  usecase "Adicionar entrada" as UC05
+  usecase "Editar entrada" as UC06
+  usecase "Remover entrada" as UC07
+  usecase "Mover entrada" as UC08
+  usecase "Copiar credencial para a\nárea de transferência" as UC09
+  usecase "Abrir URL da entrada" as UC10
+  usecase "Buscar entradas" as UC11
+  usecase "Adicionar grupo" as UC12
+  usecase "Renomear grupo" as UC13
+  usecase "Remover grupo" as UC14
+  usecase "Esvaziar lixeira" as UC15
+  usecase "Alterar senha mestra" as UC16
+  usecase "Gerar senha ou\nfrase-senha" as UC17
+  usecase "Avaliar força da senha" as UC18
+  usecase "Monitorar desempenho\nda geração" as UC19
+
+  usuario --> UC01
+  usuario --> UC02
+  usuario --> UC03
+  usuario --> UC04
+  usuario --> UC05
+  usuario --> UC06
+  usuario --> UC07
+  usuario --> UC08
+  usuario --> UC09
+  usuario --> UC10
+  usuario --> UC11
+  usuario --> UC12
+  usuario --> UC13
+  usuario --> UC14
+  usuario --> UC15
+  usuario --> UC16
+
+  UC01 ..> UC17 : <<extend>>
+  UC05 ..> UC17 : <<extend>>
+  UC16 ..> UC17 : <<extend>>
+
+  UC05 ..> UC18 : <<include>>
+  UC06 ..> UC18 : <<include>>
+  UC16 ..> UC18 : <<include>>
+  UC17 ..> UC18 : <<include>>
+
+  UC17 ..> UC19 : <<extend>>
+}
+@enduml

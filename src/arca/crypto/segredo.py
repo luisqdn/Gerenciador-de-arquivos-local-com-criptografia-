@@ -5,9 +5,9 @@ imutáveis e podem ser copiados pelo interpretador (internamento de strings,
 realloc de buffers, cópias feitas pelo coletor de lixo). O que este módulo
 oferece é redução da janela de exposição, não garantia:
 
-* SecretBytes guarda o material em um bytearray e o sobrescreve no instante
+* BytesSecretos guarda o material em um bytearray e o sobrescreve no instante
   em que ele deixa de ser necessário;
-* ProtectedValue mantém valores de campo mascarados por um keystream
+* ValorProtegido mantém valores de campo mascarados por um fluxo de chave
   sorteado a cada execução, de modo que um dump de memória da interface não
   revele senhas com uma simples varredura por texto legível.
 
@@ -21,10 +21,10 @@ import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from arca.crypto.stream import KeystreamCipher
+from arca.crypto.fluxo import CifraChaCha20
 
 
-class SecretBytes:
+class BytesSecretos:
     """Buffer mutável que pode ser zerado explicitamente."""
 
     __slots__ = ("_buf", "_descartado")
@@ -34,22 +34,22 @@ class SecretBytes:
         self._descartado = False
 
     @classmethod
-    def random(cls, tamanho: int) -> SecretBytes:
+    def aleatorio(cls, tamanho: int) -> BytesSecretos:
         return cls(os.urandom(tamanho))
 
     @classmethod
-    def from_text(cls, texto: str) -> SecretBytes:
+    def a_partir_de_texto(cls, texto: str) -> BytesSecretos:
         return cls(texto.encode("utf-8"))
 
-    def value(self) -> bytes:
+    def valor(self) -> bytes:
         if self._descartado:
             raise ValueError("segredo já foi descartado")
         return bytes(self._buf)
 
-    def text(self) -> str:
-        return self.value().decode("utf-8")
+    def texto(self) -> str:
+        return self.valor().decode("utf-8")
 
-    def wipe(self) -> None:
+    def apagar(self) -> None:
         for i in range(len(self._buf)):
             self._buf[i] = 0
         self._buf.clear()
@@ -61,35 +61,35 @@ class SecretBytes:
     def __bool__(self) -> bool:
         return bool(self._buf)
 
-    def __enter__(self) -> SecretBytes:
+    def __enter__(self) -> BytesSecretos:
         return self
 
     def __exit__(self, *_exc: object) -> None:
-        self.wipe()
+        self.apagar()
 
     def __repr__(self) -> str:
         estado = "descartado" if self._descartado else f"{len(self._buf)} bytes"
-        return f"<SecretBytes {estado}>"
+        return f"<BytesSecretos {estado}>"
 
 
 @contextmanager
-def wiped(*segredos: SecretBytes) -> Iterator[None]:
+def apagados(*segredos: BytesSecretos) -> Iterator[None]:
     """Garante o descarte de vários segredos ao final do bloco."""
     try:
         yield
     finally:
         for s in segredos:
-            s.wipe()
+            s.apagar()
 
 
-class ProtectedValue:
-    """Texto mascarado em memória por um keystream exclusivo do processo.
+class ValorProtegido:
+    """Texto mascarado em memória por um fluxo de chave exclusivo do processo.
 
-    Cada instância consome uma faixa própria do keystream, então dois valores
-    idênticos ficam com máscaras diferentes na heap.
+    Cada instância consome uma faixa própria do fluxo de chave, então dois
+    valores idênticos ficam com máscaras diferentes na heap.
     """
 
-    _cifra: KeystreamCipher | None = None
+    _cifra: CifraChaCha20 | None = None
 
     __slots__ = ("_mascarado", "_mascara")
 
@@ -101,10 +101,10 @@ class ProtectedValue:
     @classmethod
     def _sortear(cls, tamanho: int) -> bytes:
         if cls._cifra is None:
-            cls._cifra = KeystreamCipher(secrets.token_bytes(32))
-        return cls._cifra.keystream(tamanho)
+            cls._cifra = CifraChaCha20(secrets.token_bytes(32))
+        return cls._cifra.fluxo_de_chave(tamanho)
 
-    def reveal(self) -> str:
+    def revelar(self) -> str:
         claro = bytes(a ^ b for a, b in zip(self._mascarado, self._mascara, strict=True))
         return claro.decode("utf-8")
 
@@ -115,15 +115,15 @@ class ProtectedValue:
         return len(self._mascarado)
 
     def __eq__(self, outro: object) -> bool:
-        if not isinstance(outro, ProtectedValue):
+        if not isinstance(outro, ValorProtegido):
             return NotImplemented
-        return secrets.compare_digest(self.reveal(), outro.reveal())
+        return secrets.compare_digest(self.revelar(), outro.revelar())
 
     def __hash__(self) -> int:
         return hash(self._mascarado)
 
     def __repr__(self) -> str:
-        return f"<ProtectedValue {len(self._mascarado)} caracteres>"
+        return f"<ValorProtegido {len(self._mascarado)} caracteres>"
 
     def __str__(self) -> str:
         # Evita vazamento acidental em logs, tracebacks e f-strings.

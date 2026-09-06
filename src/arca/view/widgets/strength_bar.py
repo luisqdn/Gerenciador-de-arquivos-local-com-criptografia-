@@ -5,14 +5,14 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QWidget
 
-from arca.crypto.strength import Assessment, Level, evaluate
+from arca.crypto.forca import Avaliacao, Nivel, avaliar
 
 _CORES = {
-    Level.MUITO_FRACA: "#c0392b",
-    Level.FRACA: "#d35400",
-    Level.RAZOAVEL: "#c9a227",
-    Level.BOA: "#27853f",
-    Level.EXCELENTE: "#1e6f3d",
+    Nivel.MUITO_FRACA: "#c0392b",
+    Nivel.FRACA: "#d35400",
+    Nivel.RAZOAVEL: "#c9a227",
+    Nivel.BOA: "#27853f",
+    Nivel.EXCELENTE: "#1e6f3d",
 }
 
 
@@ -41,26 +41,26 @@ class StrengthBar(QWidget):
         self._barra.setValue(0)
         self._rotulo.setText("—")
         self.setToolTip("")
-        self._pintar(Level.MUITO_FRACA)
+        self._pintar(Nivel.MUITO_FRACA)
 
-    def set_password(self, senha: str) -> Assessment | None:
+    def set_password(self, senha: str) -> Avaliacao | None:
         if not senha:
             self.clear()
             return None
-        avaliacao = evaluate(senha)
+        avaliacao = avaliar(senha)
         self.set_assessment(avaliacao)
         return avaliacao
 
-    def set_assessment(self, avaliacao: Assessment) -> None:
-        self._barra.setValue(avaliacao.score)
-        self._rotulo.setText(f"{avaliacao.level.rotulo} · {avaliacao.bits:.0f} bits")
-        self._pintar(avaliacao.level)
+    def set_assessment(self, avaliacao: Avaliacao) -> None:
+        self._barra.setValue(avaliacao.pontuacao)
+        self._rotulo.setText(f"{avaliacao.nivel.rotulo} · {avaliacao.bits:.0f} bits")
+        self._pintar(avaliacao.nivel)
 
-        dicas = "\n".join(f"• {nota}" for nota in avaliacao.notes)
-        resumo = f"Busca exaustiva estimada: {avaliacao.crack_time()}"
+        dicas = "\n".join(f"• {nota}" for nota in avaliacao.notas)
+        resumo = f"Busca exaustiva estimada: {avaliacao.tempo_de_quebra()}"
         self.setToolTip(f"{resumo}\n{dicas}" if dicas else resumo)
 
-    def _pintar(self, nivel: Level) -> None:
+    def _pintar(self, nivel: Nivel) -> None:
         cor = _CORES[nivel]
         self._barra.setStyleSheet(
             "QProgressBar { background: palette(midlight); border: none; border-radius: 4px; }"

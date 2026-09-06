@@ -4,13 +4,13 @@ São as duas pontes que a janela principal usa: uma árvore para os grupos e
 uma tabela para as entradas do grupo selecionado.
 
 Os dois modelos envolvem o domínio, não o copiam. `GroupTreeModel` usa o
-próprio objeto `Group` como ponteiro interno do índice, o que só é seguro
-porque a árvore inteira pertence ao `Vault` e vive exatamente enquanto o
+próprio objeto `Grupo` como ponteiro interno do índice, o que só é seguro
+porque a árvore inteira pertence ao `Cofre` e vive exatamente enquanto o
 cofre estiver aberto -- ao trancar, modelo e janela são descartados juntos.
 
 O conjunto exibido na tabela é decidido pela janela principal (um grupo, uma
 busca, a lixeira) e entregue aqui já pronto. Manter o filtro fora do modelo
-evita ter de replicar a linguagem de consulta de `model.search` em um
+evita ter de replicar a linguagem de consulta de `model.busca` em um
 QSortFilterProxy.
 """
 
@@ -23,14 +23,14 @@ from PySide6.QtCore import QAbstractItemModel, QAbstractTableModel, QModelIndex,
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QStyle
 
-from arca.model.vault import Entry, Group, Vault
+from arca.model.cofre import Cofre, Entrada, Grupo
 
 # --------------------------------------------------------------------------
 # Árvore de grupos
 # --------------------------------------------------------------------------
 
 class GroupTreeModel(QAbstractItemModel):
-    def __init__(self, cofre: Vault, parent: QObject | None = None) -> None:
+    def __init__(self, cofre: Cofre, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._vault = cofre
         estilo = QApplication.style()
@@ -45,15 +45,15 @@ class GroupTreeModel(QAbstractItemModel):
         if not self.hasIndex(linha, coluna, pai):
             return QModelIndex()
         if not pai.isValid():
-            return self.createIndex(linha, coluna, self._vault.root)
-        grupo: Group = pai.internalPointer()
-        return self.createIndex(linha, coluna, grupo.groups[linha])
+            return self.createIndex(linha, coluna, self._vault.raiz)
+        grupo: Grupo = pai.internalPointer()
+        return self.createIndex(linha, coluna, grupo.grupos[linha])
 
     def parent(self, indice: QModelIndex) -> QModelIndex:  # noqa: N802 (API do Qt)
         if not indice.isValid():
             return QModelIndex()
-        grupo: Group = indice.internalPointer()
-        pai = grupo.parent
+        grupo: Grupo = indice.internalPointer()
+        pai = grupo.pai
         if pai is None:
             return QModelIndex()
         return self.createIndex(self._posicao(pai), 0, pai)
@@ -61,8 +61,8 @@ class GroupTreeModel(QAbstractItemModel):
     def rowCount(self, pai: QModelIndex = QModelIndex()) -> int:  # noqa: N802
         if not pai.isValid():
             return 1
-        grupo: Group = pai.internalPointer()
-        return len(grupo.groups)
+        grupo: Grupo = pai.internalPointer()
+        return len(grupo.grupos)
 
     def columnCount(self, _pai: QModelIndex = QModelIndex()) -> int:  # noqa: N802
         return 1
@@ -74,17 +74,17 @@ class GroupTreeModel(QAbstractItemModel):
     def data(self, indice: QModelIndex, papel: int = Qt.ItemDataRole.DisplayRole):
         if not indice.isValid():
             return None
-        grupo: Group = indice.internalPointer()
+        grupo: Grupo = indice.internalPointer()
 
         if papel == Qt.ItemDataRole.DisplayRole:
-            quantidade = sum(1 for _ in grupo.all_entries())
-            return f"{grupo.name}  ({quantidade})" if quantidade else grupo.name
+            quantidade = sum(1 for _ in grupo.todas_entradas())
+            return f"{grupo.nome}  ({quantidade})" if quantidade else grupo.nome
         if papel == Qt.ItemDataRole.DecorationRole:
             return self._icone(grupo)
         if papel == Qt.ItemDataRole.ToolTipRole:
-            return grupo.notes or grupo.path() or grupo.name
+            return grupo.notas or grupo.caminho() or grupo.nome
         if papel == Qt.ItemDataRole.EditRole:
-            return grupo.name
+            return grupo.nome
         if papel == Qt.ItemDataRole.UserRole:
             return grupo
         return None
@@ -95,9 +95,9 @@ class GroupTreeModel(QAbstractItemModel):
         nome = str(valor).strip()
         if not nome:
             return False
-        grupo: Group = indice.internalPointer()
-        grupo.name = nome
-        grupo.times.touch()
+        grupo: Grupo = indice.internalPointer()
+        grupo.nome = nome
+        grupo.tempos.atualizar()
         self.dataChanged.emit(indice, indice, [Qt.ItemDataRole.DisplayRole])
         return True
 
@@ -105,8 +105,8 @@ class GroupTreeModel(QAbstractItemModel):
         if not indice.isValid():
             return Qt.ItemFlag.NoItemFlags
         base = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
-        grupo: Group = indice.internalPointer()
-        if grupo is not self._vault.root:
+        grupo: Grupo = indice.internalPointer()
+        if grupo is not self._vault.raiz:
             base |= Qt.ItemFlag.ItemIsEditable
         return base
 
@@ -120,29 +120,29 @@ class GroupTreeModel(QAbstractItemModel):
     # Utilidades para a janela principal
     # ------------------------------------------------------------------
 
-    def group_at(self, indice: QModelIndex) -> Group | None:
+    def group_at(self, indice: QModelIndex) -> Grupo | None:
         return indice.internalPointer() if indice.isValid() else None
 
-    def index_of(self, grupo: Group) -> QModelIndex:
+    def index_of(self, grupo: Grupo) -> QModelIndex:
         return self.createIndex(self._posicao(grupo), 0, grupo)
 
     def root_index(self) -> QModelIndex:
-        return self.createIndex(0, 0, self._vault.root)
+        return self.createIndex(0, 0, self._vault.raiz)
 
     def refresh(self) -> None:
         """Sinaliza reconstrução total: usado após mudanças estruturais."""
         self.beginResetModel()
         self.endResetModel()
 
-    def _icone(self, grupo: Group) -> QIcon:
-        lixeira = self._vault.recycle_bin(criar=False)
+    def _icone(self, grupo: Grupo) -> QIcon:
+        lixeira = self._vault.lixeira(criar=False)
         return self._icone_lixeira if grupo is lixeira else self._icone_pasta
 
     @staticmethod
-    def _posicao(grupo: Group) -> int:
-        if grupo.parent is None:
+    def _posicao(grupo: Grupo) -> int:
+        if grupo.pai is None:
             return 0
-        return grupo.parent.groups.index(grupo)
+        return grupo.pai.grupos.index(grupo)
 
 
 # --------------------------------------------------------------------------
@@ -170,23 +170,23 @@ class Coluna(IntEnum):
 class EntryTableModel(QAbstractTableModel):
     def __init__(self, parent: QObject | None = None, mostrar_senha: bool = False) -> None:
         super().__init__(parent)
-        self._entradas: list[Entry] = []
+        self._entradas: list[Entrada] = []
         self._mostrar_senha = mostrar_senha
         self._icone = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
 
     # ------------------------------------------------------------------
 
-    def set_entries(self, entradas: list[Entry]) -> None:
+    def set_entries(self, entradas: list[Entrada]) -> None:
         self.beginResetModel()
         self._entradas = entradas
         self.endResetModel()
 
-    def entry_at(self, indice: QModelIndex) -> Entry | None:
+    def entry_at(self, indice: QModelIndex) -> Entrada | None:
         if not indice.isValid() or not 0 <= indice.row() < len(self._entradas):
             return None
         return self._entradas[indice.row()]
 
-    def row_of(self, entrada: Entry) -> int:
+    def row_of(self, entrada: Entrada) -> int:
         try:
             return self._entradas.index(entrada)
         except ValueError:
@@ -235,11 +235,11 @@ class EntryTableModel(QAbstractTableModel):
 
     def sort(self, coluna: int, ordem: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
         chaves = {
-            Coluna.TITULO: lambda e: e.title.casefold(),
-            Coluna.USUARIO: lambda e: e.username.casefold(),
+            Coluna.TITULO: lambda e: e.titulo.casefold(),
+            Coluna.USUARIO: lambda e: e.usuario.casefold(),
             Coluna.URL: lambda e: e.url.casefold(),
-            Coluna.MODIFICADA: lambda e: e.times.modified,
-            Coluna.SENHA: lambda e: len(e.password),
+            Coluna.MODIFICADA: lambda e: e.tempos.modificado,
+            Coluna.SENHA: lambda e: len(e.senha),
         }
         self.layoutAboutToBeChanged.emit()
         self._entradas.sort(
@@ -250,25 +250,25 @@ class EntryTableModel(QAbstractTableModel):
 
     # ------------------------------------------------------------------
 
-    def _texto(self, entrada: Entry, coluna: Coluna) -> str:
+    def _texto(self, entrada: Entrada, coluna: Coluna) -> str:
         if coluna is Coluna.TITULO:
-            return entrada.display_title
+            return entrada.titulo_exibido
         if coluna is Coluna.USUARIO:
-            return entrada.username
+            return entrada.usuario
         if coluna is Coluna.URL:
             return entrada.url
         if coluna is Coluna.MODIFICADA:
-            return _tempo_relativo(entrada.times.modified)
-        return entrada.password.reveal() if self._mostrar_senha else "•" * len(entrada.password)
+            return _tempo_relativo(entrada.tempos.modificado)
+        return entrada.senha.revelar() if self._mostrar_senha else "•" * len(entrada.senha)
 
     @staticmethod
-    def _dica(entrada: Entry) -> str:
-        linhas = [entrada.display_title]
-        if entrada.parent is not None:
-            linhas.append(f"Grupo: {entrada.parent.path() or '/'}")
-        if entrada.notes:
+    def _dica(entrada: Entrada) -> str:
+        linhas = [entrada.titulo_exibido]
+        if entrada.pai is not None:
+            linhas.append(f"Grupo: {entrada.pai.caminho() or '/'}")
+        if entrada.notas:
             linhas.append("")
-            linhas.append(entrada.notes[:200])
+            linhas.append(entrada.notas[:200])
         return "\n".join(linhas)
 
 

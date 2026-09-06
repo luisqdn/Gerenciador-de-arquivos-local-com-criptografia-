@@ -12,54 +12,54 @@ from pathlib import Path
 
 import pytest
 
-from arca.crypto.kdf import MEMORIA_MINIMA_KIB, KdfParameters
-from arca.crypto.secret import ProtectedValue
-from arca.model.storage import Credentials, SaveOptions
-from arca.model.vault import Entry, Group, Vault
+from arca.crypto.kdf import MEMORIA_MINIMA_KIB, ParametrosKdf
+from arca.crypto.segredo import ValorProtegido
+from arca.model.armazenamento import Credenciais, OpcoesDeGravacao
+from arca.model.cofre import Cofre, Entrada, Grupo
 
 SENHA_DE_TESTE = "cofre-de-teste-92#"
 
 
 @pytest.fixture
-def kdf_rapido() -> KdfParameters:
-    return KdfParameters(memory_kib=MEMORIA_MINIMA_KIB, iterations=1, parallelism=1)
+def kdf_rapido() -> ParametrosKdf:
+    return ParametrosKdf(memoria_kib=MEMORIA_MINIMA_KIB, iteracoes=1, paralelismo=1)
 
 
 @pytest.fixture
-def opcoes(kdf_rapido: KdfParameters) -> SaveOptions:
-    return SaveOptions(kdf=kdf_rapido)
+def opcoes(kdf_rapido: ParametrosKdf) -> OpcoesDeGravacao:
+    return OpcoesDeGravacao(kdf=kdf_rapido)
 
 
 @pytest.fixture
-def credenciais() -> Credentials:
-    return Credentials.from_inputs(SENHA_DE_TESTE)
+def credenciais() -> Credenciais:
+    return Credenciais.a_partir_de(SENHA_DE_TESTE)
 
 
 @pytest.fixture
-def cofre() -> Vault:
+def cofre() -> Cofre:
     """Cofre com alguma estrutura: dois grupos e três entradas."""
-    vault = Vault(root=Group(name="Raiz"))
-    bancos = vault.root.add_group(Group(name="Bancos"))
-    internet = vault.root.add_group(Group(name="Internet"))
+    vault = Cofre(raiz=Grupo(nome="Raiz"))
+    bancos = vault.raiz.adicionar_grupo(Grupo(nome="Bancos"))
+    internet = vault.raiz.adicionar_grupo(Grupo(nome="Internet"))
 
-    bancos.add_entry(Entry(
-        title="Banco Exemplo",
-        username="ana.silva",
-        password=ProtectedValue("K7#vLm2!qXz9"),
+    bancos.adicionar_entrada(Entrada(
+        titulo="Banco Exemplo",
+        usuario="ana.silva",
+        senha=ValorProtegido("K7#vLm2!qXz9"),
         url="https://banco.example",
     ))
 
-    internet.add_entry(Entry(
-        title="Fórum",
-        username="ana",
-        password=ProtectedValue("123456"),
+    internet.adicionar_entrada(Entrada(
+        titulo="Fórum",
+        usuario="ana",
+        senha=ValorProtegido("123456"),
         url="http://forum.example",
-        notes="conta antiga",
+        notas="conta antiga",
     ))
-    internet.add_entry(Entry(
-        title="Loja",
-        username="ana@example.com",
-        password=ProtectedValue("123456"),
+    internet.adicionar_entrada(Entrada(
+        titulo="Loja",
+        usuario="ana@example.com",
+        senha=ValorProtegido("123456"),
     ))
     return vault
 

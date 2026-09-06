@@ -26,17 +26,17 @@ def _linhas_uteis(texto: str) -> list[str]:
 
 
 @lru_cache(maxsize=1)
-def wordlist() -> tuple[str, ...]:
+def lista_de_palavras() -> tuple[str, ...]:
     """Dicionário de frases-senha embutido (512 palavras, 9 bits cada)."""
     return tuple(_ler_recurso(ARQUIVO_PALAVRAS))
 
 
 @lru_cache(maxsize=1)
-def common_passwords() -> frozenset[str]:
+def senhas_comuns() -> frozenset[str]:
     return frozenset(_ler_recurso(ARQUIVO_SENHAS_COMUNS))
 
 
-def load_wordlist(caminho: Path) -> tuple[str, ...]:
+def carregar_lista_de_palavras(caminho: Path) -> tuple[str, ...]:
     """Carrega uma lista alternativa fornecida pelo usuário."""
     palavras = _linhas_uteis(caminho.read_text(encoding="utf-8"))
     if len(palavras) < 64:

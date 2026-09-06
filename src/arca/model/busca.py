@@ -20,32 +20,32 @@ import shlex
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 
-from arca.model.vault import Entry, Vault
+from arca.model.cofre import Cofre, Entrada
 
 CAMPOS = {
-    "titulo": "title",
-    "título": "title",
-    "usuario": "username",
-    "usuário": "username",
+    "titulo": "titulo",
+    "título": "titulo",
+    "usuario": "usuario",
+    "usuário": "usuario",
     "url": "url",
-    "notas": "notes",
-    "nota": "notes",
-    "grupo": "group",
+    "notas": "notas",
+    "nota": "notas",
+    "grupo": "grupo",
 }
 
 
 @dataclass(slots=True)
-class Query:
-    terms: list[str] = field(default_factory=list)
-    filters: list[tuple[str, str]] = field(default_factory=list)
+class Consulta:
+    termos: list[str] = field(default_factory=list)
+    filtros: list[tuple[str, str]] = field(default_factory=list)
 
     @property
-    def is_empty(self) -> bool:
-        return not self.terms and not self.filters
+    def esta_vazia(self) -> bool:
+        return not self.termos and not self.filtros
 
 
-def parse(texto: str) -> Query:
-    consulta = Query()
+def interpretar(texto: str) -> Consulta:
+    consulta = Consulta()
     try:
         pedacos = shlex.split(texto)
     except ValueError:
@@ -56,46 +56,46 @@ def parse(texto: str) -> Query:
         prefixo, separador, valor = pedaco.partition(":")
         campo = CAMPOS.get(prefixo.casefold()) if separador else None
         if campo is None or not valor:
-            consulta.terms.append(pedaco.casefold())
+            consulta.termos.append(pedaco.casefold())
         else:
-            consulta.filters.append((campo, valor.casefold()))
+            consulta.filtros.append((campo, valor.casefold()))
     return consulta
 
 
-def matches(entrada: Entry, consulta: Query) -> bool:
-    if any(not _campo_contem(entrada, campo, valor) for campo, valor in consulta.filters):
+def corresponde(entrada: Entrada, consulta: Consulta) -> bool:
+    if any(not _campo_contem(entrada, campo, valor) for campo, valor in consulta.filtros):
         return False
-    if not consulta.terms:
+    if not consulta.termos:
         return True
     alvo = _texto_pesquisavel(entrada)
-    return all(termo in alvo for termo in consulta.terms)
+    return all(termo in alvo for termo in consulta.termos)
 
 
-def search(cofre: Vault, texto: str, incluir_lixeira: bool = False) -> list[Entry]:
-    consulta = parse(texto)
-    resultado = filter_entries(cofre.entries(), consulta)
+def buscar(cofre: Cofre, texto: str, incluir_lixeira: bool = False) -> list[Entrada]:
+    consulta = interpretar(texto)
+    resultado = filtrar_entradas(cofre.entradas(), consulta)
     if incluir_lixeira:
         return list(resultado)
-    return [e for e in resultado if not cofre.is_in_recycle_bin(e)]
+    return [e for e in resultado if not cofre.esta_na_lixeira(e)]
 
 
-def filter_entries(entradas: Iterable[Entry], consulta: Query) -> Iterator[Entry]:
-    if consulta.is_empty:
+def filtrar_entradas(entradas: Iterable[Entrada], consulta: Consulta) -> Iterator[Entrada]:
+    if consulta.esta_vazia:
         yield from entradas
         return
     for entrada in entradas:
-        if matches(entrada, consulta):
+        if corresponde(entrada, consulta):
             yield entrada
 
 
-def _texto_pesquisavel(entrada: Entry) -> str:
-    partes = [entrada.title, entrada.username, entrada.url, entrada.notes]
-    if entrada.parent is not None:
-        partes.append(entrada.parent.path())
+def _texto_pesquisavel(entrada: Entrada) -> str:
+    partes = [entrada.titulo, entrada.usuario, entrada.url, entrada.notas]
+    if entrada.pai is not None:
+        partes.append(entrada.pai.caminho())
     return " ".join(partes).casefold()
 
 
-def _campo_contem(entrada: Entry, campo: str, valor: str) -> bool:
-    if campo == "group":
-        return entrada.parent is not None and valor in entrada.parent.path().casefold()
+def _campo_contem(entrada: Entrada, campo: str, valor: str) -> bool:
+    if campo == "grupo":
+        return entrada.pai is not None and valor in entrada.pai.caminho().casefold()
     return valor in str(getattr(entrada, campo, "")).casefold()

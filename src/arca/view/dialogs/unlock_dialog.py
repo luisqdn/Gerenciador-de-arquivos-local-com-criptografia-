@@ -28,8 +28,8 @@ from PySide6.QtWidgets import (
 
 from arca import APP_NAME, VAULT_SUFFIX
 from arca.controller.vault_controller import VaultController
-from arca.model.errors import ArcaError
-from arca.model.storage import Credentials
+from arca.model.armazenamento import Credenciais
+from arca.model.erros import ErroArca
 
 # Código de retorno próprio: o usuário pediu para criar um cofre em vez de abrir.
 CODIGO_CRIAR = 2
@@ -49,10 +49,10 @@ class _Trabalhador(QObject):
 
     def executar(self) -> None:
         try:
-            credenciais = Credentials.from_inputs(self._senha or None)
+            credenciais = Credenciais.a_partir_de(self._senha or None)
             servico = VaultController()
             servico.open(self._caminho, credenciais, somente_leitura=self._somente_leitura)
-        except ArcaError as exc:
+        except ErroArca as exc:
             self.falhou.emit(str(exc))
         except Exception as exc:  # falha inesperada: melhor mostrar que engolir
             self.falhou.emit(f"erro inesperado ao abrir o cofre: {exc}")

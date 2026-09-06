@@ -10,24 +10,21 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QFormLayout,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from arca import APP_NAME, VAULT_SUFFIX
 from arca.controller.vault_controller import VaultController
-from arca.crypto.kdf import KdfParameters, calibrate
-from arca.crypto.strength import Level, evaluate
-from arca.model.errors import ArcaError
-from arca.model.storage import Credentials, SaveOptions
+from arca.crypto.forca import Nivel, avaliar
+from arca.model.armazenamento import Credenciais, OpcoesDeGravacao
+from arca.model.erros import ErroArca
 from arca.view.dialogs.generator_dialog import pedir_senha_gerada
 from arca.view.widgets.password_edit import PasswordEdit
 
@@ -38,8 +35,8 @@ class _Criador(QObject):
     concluido = Signal(object)
     falhou = Signal(str)
 
-    def __init__(self, caminho: Path, nome: str, credenciais: Credentials,
-                 opcoes: SaveOptions) -> None:
+    def __init__(self, caminho: Path, nome: str, credenciais: Credenciais,
+                 opcoes: OpcoesDeGravacao) -> None:
         super().__init__()
         self._caminho = caminho
         self._nome = nome
@@ -50,7 +47,7 @@ class _Criador(QObject):
         try:
             servico = VaultController()
             servico.create(self._caminho, self._credenciais, self._opcoes, self._nome)
-        except ArcaError as exc:
+        except ErroArca as exc:
             self.falhou.emit(str(exc))
         except Exception as exc:
             self.falhou.emit(f"erro inesperado ao criar o cofre: {exc}")
@@ -90,22 +87,6 @@ class NewVaultDialog(QDialog):
         self._repetir.setPlaceholderText("repita a senha mestra")
         self._repetir.textChanged.connect(self._revalidar)
 
-        self._memoria = QSpinBox(self)
-        self._memoria.setRange(8, 1024)
-        self._memoria.setValue(64)
-        self._memoria.setSuffix(" MiB")
-        self._iteracoes = QSpinBox(self)
-        self._iteracoes.setRange(1, 64)
-        self._iteracoes.setValue(4)
-        self._threads = QSpinBox(self)
-        self._threads.setRange(1, 16)
-        self._threads.setValue(4)
-
-        calibrar = QPushButton("Calibrar nesta máquina", self)
-        calibrar.setAutoDefault(False)
-        calibrar.setToolTip("Ajusta as iterações para uma derivação de cerca de 0,6 s.")
-        calibrar.clicked.connect(self._calibrar)
-
         self._aviso = QLabel(self)
         self._aviso.setObjectName("rotuloErro")
         self._aviso.setWordWrap(True)
@@ -128,18 +109,8 @@ class NewVaultDialog(QDialog):
         formulario.addRow("Senha mestra", self._senha)
         formulario.addRow("Confirmação", self._repetir)
 
-        avancado = QGroupBox("Parâmetros criptográficos", self)
-        avancado.setCheckable(True)
-        avancado.setChecked(False)
-        interno = QFormLayout(avancado)
-        interno.addRow("Memória do Argon2id", self._memoria)
-        interno.addRow("Iterações", self._iteracoes)
-        interno.addRow("Threads", self._threads)
-        interno.addRow("", calibrar)
-
         leiaute = QVBoxLayout(self)
         leiaute.addLayout(formulario)
-        leiaute.addWidget(avancado)
         leiaute.addWidget(self._aviso)
         leiaute.addWidget(self._progresso)
         leiaute.addWidget(self._botoes)
@@ -168,7 +139,7 @@ class NewVaultDialog(QDialog):
     def _escolher_destino(self) -> None:
         caminho, _ = QFileDialog.getSaveFileName(
             self, "Criar cofre", "",
-            f"Cofres do {APP_NAME} (*{VAULT_SUFFIX})",
+            f"Cofres do {APP_NAME} (*{VAULT_SUFFIX});;Todos os arquivos (*)",
         )
         if not caminho:
             return
@@ -178,21 +149,6 @@ class NewVaultDialog(QDialog):
         if not self._nome.text():
             self._nome.setText(Path(caminho).stem)
         self._revalidar()
-
-    def _calibrar(self) -> None:
-        self.setEnabled(False)
-        try:
-            parametros = calibrate(0.6, memory_kib=self._memoria.value() * 1024,
-                                   parallelism=self._threads.value())
-        finally:
-            self.setEnabled(True)
-        self._iteracoes.setValue(parametros.iterations)
-        QMessageBox.information(
-            self, "Calibração concluída",
-            f"{parametros.describe()}\n\n"
-            "Estes parâmetros ficam gravados no cabeçalho do cofre e podem ser "
-            "alterados depois, ao trocar a senha mestra.",
-        )
 
     def _revalidar(self) -> None:
         senha = self._senha.text()
@@ -215,25 +171,19 @@ class NewVaultDialog(QDialog):
 
         senha = self._senha.text()
         if senha:
-            avaliacao = evaluate(senha)
-            if avaliacao.level <= Level.FRACA:
+            avaliacao = avaliar(senha)
+            if avaliacao.nivel <= Nivel.FRACA:
                 resposta = QMessageBox.question(
                     self, "Senha fraca",
-                    f"Esta senha foi classificada como {avaliacao.level.rotulo} "
+                    f"Esta senha foi classificada como {avaliacao.nivel.rotulo} "
                     f"({avaliacao.bits:.0f} bits).\n\n"
                     "Ela protege todas as outras senhas do cofre. Usar mesmo assim?",
                 )
                 if resposta != QMessageBox.StandardButton.Yes:
                     return
 
-        opcoes = SaveOptions(
-            kdf=KdfParameters(
-                memory_kib=self._memoria.value() * 1024,
-                iterations=self._iteracoes.value(),
-                parallelism=self._threads.value(),
-            ),
-        )
-        credenciais = Credentials.from_inputs(senha or None)
+        opcoes = OpcoesDeGravacao()
+        credenciais = Credenciais.a_partir_de(senha or None)
 
         self._ocupado(True)
         criador = _Criador(destino, self._nome.text().strip() or destino.stem,

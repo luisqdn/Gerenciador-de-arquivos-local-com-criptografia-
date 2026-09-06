@@ -10,13 +10,11 @@ passa pelo controlador, que é quem decide sobre lixeira e estado de
 from __future__ import annotations
 
 import webbrowser
-from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QDesktopServices, QKeySequence, QPalette
+from PySide6.QtGui import QAction, QDesktopServices, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QFileDialog,
     QHeaderView,
     QInputDialog,
     QLabel,
@@ -32,16 +30,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from arca import APP_NAME, APP_VERSION
+from arca import APP_NAME
 from arca.controller.vault_controller import VaultController
-from arca.model import search
-from arca.model.errors import ArcaError
-from arca.model.storage import SaveOptions
-from arca.model.vault import Entry, Group
+from arca.model import busca
+from arca.model.armazenamento import OpcoesDeGravacao
+from arca.model.cofre import Entrada, Grupo
+from arca.model.erros import ErroArca
 from arca.view.adapters import Coluna, EntryTableModel, GroupTreeModel
 from arca.view.clipboard import ClipboardService
 from arca.view.dialogs.entry_dialog import EntryDialog
-from arca.view.dialogs.generator_dialog import GeneratorDialog
 from arca.view.dialogs.master_key_dialog import MasterKeyDialog
 from arca.view.widgets.detail_panel import DetailPanel
 
@@ -138,51 +135,14 @@ class MainWindow(QMainWindow):
         self._busca.textChanged.connect(self._ao_buscar)
         self._busca.setMaximumWidth(420)
 
-        arquivo = self.menuBar().addMenu("&Arquivo")
-        arquivo.addAction(self._acao("Salvar", self.salvar, QKeySequence.StandardKey.Save))
-        arquivo.addAction(self._acao("Salvar como…", self.salvar_como))
-        arquivo.addSeparator()
-        arquivo.addAction(self._acao("Trancar cofre", self.trancar, "Ctrl+L"))
-        arquivo.addSeparator()
-        arquivo.addAction(self._acao("Sair", self.close, QKeySequence.StandardKey.Quit))
-
-        editar = self.menuBar().addMenu("&Editar")
-        editar.addAction(self._acao("Nova entrada", self.nova_entrada, "Ctrl+N"))
-        editar.addAction(self._acao("Editar entrada", self.editar_entrada, "Ctrl+E"))
-        editar.addAction(self._acao("Remover entrada", self.remover_entrada, "Del"))
-        editar.addSeparator()
-        editar.addAction(self._acao("Copiar senha", self.copiar_senha, "Ctrl+C"))
-        editar.addAction(self._acao("Copiar usuário", self.copiar_usuario, "Ctrl+B"))
-        editar.addAction(self._acao("Abrir endereço", self.abrir_endereco, "Ctrl+U"))
-        editar.addSeparator()
-        editar.addAction(self._acao("Mover para…", self.mover_entrada))
-
-        grupos = self.menuBar().addMenu("&Grupos")
-        grupos.addAction(self._acao("Novo grupo", self.novo_grupo, "Ctrl+G"))
-        grupos.addAction(self._acao("Renomear grupo", self.renomear_grupo, "F2"))
-        grupos.addAction(self._acao("Remover grupo", self.remover_grupo))
-        grupos.addSeparator()
-        grupos.addAction(self._acao("Esvaziar lixeira", self.esvaziar_lixeira))
-
-        ferramentas = self.menuBar().addMenu("&Ferramentas")
-        ferramentas.addAction(self._acao("Gerador de senhas", self.abrir_gerador, "Ctrl+P"))
-        ferramentas.addSeparator()
-        ferramentas.addAction(self._acao("Alterar senha mestra…", self.alterar_senha_mestra))
-
-        ajuda = self.menuBar().addMenu("A&juda")
-        ajuda.addAction(self._acao("Sobre o Arca", self.sobre))
-
         barra = QToolBar("Principal", self)
         barra.setMovable(False)
         barra.addAction(self._acao("Nova entrada", self.nova_entrada))
         barra.addAction(self._acao("Editar", self.editar_entrada))
+        barra.addAction(self._acao("Alterar senha mestra", self.alterar_senha_mestra))
         barra.addAction(self._acao("Remover", self.remover_entrada))
         barra.addSeparator()
-        barra.addAction(self._acao("Copiar senha", self.copiar_senha))
-        barra.addAction(self._acao("Copiar usuário", self.copiar_usuario))
-        barra.addSeparator()
-        barra.addAction(self._acao("Salvar", self.salvar))
-        barra.addAction(self._acao("Trancar", self.trancar))
+        barra.addAction(self._acao("Sair", self.trancar))
         barra.addSeparator()
         barra.addWidget(self._busca)
         self.addToolBar(barra)
@@ -219,15 +179,15 @@ class MainWindow(QMainWindow):
     def _atualizar_lista(self) -> None:
         consulta = self._busca.text().strip()
         if consulta:
-            entradas = search.search(self._servico.vault, consulta)
+            entradas = busca.buscar(self._servico.vault, consulta)
         else:
-            grupo = self._grupo_selecionado() or self._servico.vault.root
-            entradas = list(grupo.all_entries())
-            if grupo is self._servico.vault.root:
+            grupo = self._grupo_selecionado() or self._servico.vault.raiz
+            entradas = list(grupo.todas_entradas())
+            if grupo is self._servico.vault.raiz:
                 entradas = [
-                    e for e in entradas if not self._servico.vault.is_in_recycle_bin(e)
+                    e for e in entradas if not self._servico.vault.esta_na_lixeira(e)
                 ]
-        entradas.sort(key=lambda e: e.title.casefold())
+        entradas.sort(key=lambda e: e.titulo.casefold())
         self._modelo_tabela.set_entries(entradas)
         self._detalhes.clear()
 
@@ -237,7 +197,7 @@ class MainWindow(QMainWindow):
         leitura = " [somente leitura]" if self._servico.state.read_only else ""
         self.setWindowTitle(f"{self._servico.display_name}{sujo}{leitura} — {APP_NAME}")
         self._info_cofre.setText(str(caminho) if caminho else "")
-        numeros = self._servico.vault.stats()
+        numeros = self._servico.vault.estatisticas()
         self._info_estado.setText(
             f"{numeros['entradas']} entradas · {numeros['grupos']} grupos"
             + (" · não salvo" if self._servico.dirty else "")
@@ -253,13 +213,13 @@ class MainWindow(QMainWindow):
     # Seleção
     # ------------------------------------------------------------------
 
-    def _grupo_selecionado(self) -> Group | None:
+    def _grupo_selecionado(self) -> Grupo | None:
         indices = self._arvore.selectionModel().selectedIndexes()
         if not indices:
             return None
         return self._modelo_arvore.group_at(indices[0])
 
-    def _entrada_selecionada(self) -> Entry | None:
+    def _entrada_selecionada(self) -> Entrada | None:
         indices = self._tabela.selectionModel().selectedRows()
         if not indices:
             return None
@@ -281,7 +241,7 @@ class MainWindow(QMainWindow):
     def _ao_buscar(self, _texto: str) -> None:
         self._atualizar_lista()
 
-    def _selecionar_entrada(self, entrada: Entry) -> None:
+    def _selecionar_entrada(self, entrada: Entrada) -> None:
         linha = self._modelo_tabela.row_of(entrada)
         if linha < 0:
             self._busca.clear()
@@ -299,7 +259,7 @@ class MainWindow(QMainWindow):
     def nova_entrada(self) -> None:
         if self._somente_leitura():
             return
-        destino = self._grupo_selecionado() or self._servico.vault.root
+        destino = self._grupo_selecionado() or self._servico.vault.raiz
         dialogo = EntryDialog(self)
         if dialogo.exec() != EntryDialog.DialogCode.Accepted:
             return
@@ -323,11 +283,11 @@ class MainWindow(QMainWindow):
         entrada = self._entrada_selecionada()
         if entrada is None or self._somente_leitura():
             return
-        na_lixeira = self._servico.vault.is_in_recycle_bin(entrada)
+        na_lixeira = self._servico.vault.esta_na_lixeira(entrada)
         texto = (
-            f"Apagar definitivamente {entrada.display_title!r}?"
+            f"Apagar definitivamente {entrada.titulo_exibido!r}?"
             if na_lixeira
-            else f"Mover {entrada.display_title!r} para a lixeira?"
+            else f"Mover {entrada.titulo_exibido!r} para a lixeira?"
         )
         if QMessageBox.question(self, "Remover entrada", texto) != \
                 QMessageBox.StandardButton.Yes:
@@ -340,8 +300,8 @@ class MainWindow(QMainWindow):
         entrada = self._entrada_selecionada()
         if entrada is None or self._somente_leitura():
             return
-        grupos = list(self._servico.vault.groups())
-        rotulos = [g.path() or g.name for g in grupos]
+        grupos = list(self._servico.vault.grupos())
+        rotulos = [g.caminho() or g.nome for g in grupos]
         escolha, ok = QInputDialog.getItem(self, "Mover entrada", "Grupo de destino:",
                                            rotulos, 0, False)
         if not ok:
@@ -359,12 +319,12 @@ class MainWindow(QMainWindow):
         entrada = self._entrada_selecionada()
         if entrada is None:
             return
-        self._copiar_rotulado("Senha", entrada.password.reveal())
+        self._copiar_rotulado("Senha", entrada.senha.revelar())
 
     def copiar_usuario(self) -> None:
         entrada = self._entrada_selecionada()
         if entrada is not None:
-            self._copiar_rotulado("Usuário", entrada.username)
+            self._copiar_rotulado("Usuário", entrada.usuario)
 
     def abrir_endereco(self) -> None:
         entrada = self._entrada_selecionada()
@@ -401,35 +361,35 @@ class MainWindow(QMainWindow):
     def novo_grupo(self) -> None:
         if self._somente_leitura():
             return
-        pai = self._grupo_selecionado() or self._servico.vault.root
+        pai = self._grupo_selecionado() or self._servico.vault.raiz
         nome, ok = QInputDialog.getText(self, "Novo grupo", "Nome do grupo:")
         if not ok or not nome.strip():
             return
-        self._servico.add_group(pai, Group(name=nome.strip()))
+        self._servico.add_group(pai, Grupo(nome=nome.strip()))
         self._modelo_arvore.refresh()
         self._arvore.expandAll()
 
     def renomear_grupo(self) -> None:
         grupo = self._grupo_selecionado()
-        if grupo is None or grupo is self._servico.vault.root or self._somente_leitura():
+        if grupo is None or grupo is self._servico.vault.raiz or self._somente_leitura():
             return
         nome, ok = QInputDialog.getText(self, "Renomear grupo", "Novo nome:",
-                                        QLineEdit.EchoMode.Normal, grupo.name)
+                                        QLineEdit.EchoMode.Normal, grupo.nome)
         if not ok or not nome.strip():
             return
-        grupo.name = nome.strip()
-        grupo.times.touch()
+        grupo.nome = nome.strip()
+        grupo.tempos.atualizar()
         self._servico.mark_dirty()
         self._modelo_arvore.refresh()
 
     def remover_grupo(self) -> None:
         grupo = self._grupo_selecionado()
-        if grupo is None or grupo is self._servico.vault.root or self._somente_leitura():
+        if grupo is None or grupo is self._servico.vault.raiz or self._somente_leitura():
             return
-        quantidade = sum(1 for _ in grupo.all_entries())
+        quantidade = sum(1 for _ in grupo.todas_entradas())
         if QMessageBox.question(
             self, "Remover grupo",
-            f"Remover {grupo.name!r} e as {quantidade} entrada(s) que ele contém?",
+            f"Remover {grupo.nome!r} e as {quantidade} entrada(s) que ele contém?",
         ) != QMessageBox.StandardButton.Yes:
             return
         try:
@@ -464,26 +424,11 @@ class MainWindow(QMainWindow):
             return False
         try:
             self._servico.save(self._opcoes_de_gravacao())
-        except ArcaError as exc:
+        except ErroArca as exc:
             QMessageBox.critical(self, "Não foi possível salvar", str(exc))
             return False
         self.statusBar().showMessage("cofre salvo", 3000)
         return True
-
-    def salvar_como(self) -> None:
-        destino, _ = QFileDialog.getSaveFileName(
-            self, "Salvar cofre como", "",
-            f"Cofres do {APP_NAME} (*.arca)",
-        )
-        if not destino:
-            return
-        caminho = Path(destino if destino.endswith(".arca") else destino + ".arca")
-        try:
-            self._servico.save_as(caminho, opcoes=self._opcoes_de_gravacao())
-        except ArcaError as exc:
-            QMessageBox.critical(self, "Não foi possível salvar", str(exc))
-            return
-        self._atualizar_titulo()
 
     def trancar(self) -> None:
         """Fecha o cofre e devolve o controle à tela de destravamento."""
@@ -513,18 +458,15 @@ class MainWindow(QMainWindow):
             return self.salvar()
         return True
 
-    def _opcoes_de_gravacao(self) -> SaveOptions:
+    def _opcoes_de_gravacao(self) -> OpcoesDeGravacao:
         cabecalho = self._servico.state.header
         if cabecalho is None:
-            return SaveOptions()
-        return SaveOptions.from_header(cabecalho)
+            return OpcoesDeGravacao()
+        return OpcoesDeGravacao.a_partir_do_cabecalho(cabecalho)
 
     # ------------------------------------------------------------------
     # Ferramentas
     # ------------------------------------------------------------------
-
-    def abrir_gerador(self) -> None:
-        GeneratorDialog(self).exec()
 
     def alterar_senha_mestra(self) -> None:
         if self._somente_leitura():
@@ -533,27 +475,17 @@ class MainWindow(QMainWindow):
         caminho = self._servico.path
         if cabecalho is None or caminho is None:
             return
-        dialogo = MasterKeyDialog(cabecalho.kdf, caminho, self)
+        dialogo = MasterKeyDialog(caminho, self)
         if dialogo.exec() != MasterKeyDialog.DialogCode.Accepted:
             return
-        opcoes = SaveOptions.from_header(cabecalho, kdf=dialogo.kdf())
+        opcoes = OpcoesDeGravacao.a_partir_do_cabecalho(cabecalho)
         try:
             self._servico.change_credentials(dialogo.credentials(), opcoes)
-        except ArcaError as exc:
+        except ErroArca as exc:
             QMessageBox.critical(self, "Alterar senha mestra", str(exc))
             return
         QMessageBox.information(self, "Senha mestra alterada",
                                 "O cofre foi regravado com as novas credenciais.")
-
-    def sobre(self) -> None:
-        cabecalho = self._servico.state.header
-        QMessageBox.about(
-            self, f"Sobre o {APP_NAME}",
-            f"<b>{APP_NAME} {APP_VERSION}</b><br><br>"
-            "Gerenciador de senhas local. O cofre não sai desta máquina: "
-            "não há sincronização, telemetria ou qualquer acesso à rede.<br><br>"
-            f"Cofre atual: {cabecalho.describe() if cabecalho else '—'}",
-        )
 
     # ------------------------------------------------------------------
     # Menus de contexto

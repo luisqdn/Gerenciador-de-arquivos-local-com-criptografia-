@@ -58,10 +58,9 @@ python -m arca              # equivalente, sem instalar o atalho
 
 ![Tela de destravamento](docs/imagens/tela-de-abertura.png)
 
-Na primeira execução, use **Criar cofre novo…** na tela de abertura. O botão
-**Calibrar nesta máquina**, na seção de parâmetros criptográficos, ajusta as
-iterações do Argon2id para uma derivação de cerca de 0,6 segundo no seu
-hardware — vale a pena usá-lo.
+Na primeira execução, use **Criar cofre novo…** na tela de abertura. O custo
+do Argon2id (memória, iterações, threads) já vem com um valor padrão seguro
+para a maioria das máquinas, então não há nada para configurar nessa tela.
 
 | Atalho   | Ação                        |
 |----------|-----------------------------|

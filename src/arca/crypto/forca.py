@@ -16,8 +16,8 @@ Padrões reconhecidos:
 
 O resultado é sempre uma estimativa por cima do que o atacante gasta, nunca
 uma garantia. Senhas geradas pelo próprio Arca têm entropia exata conhecida,
-informada por `generator.PasswordRecipe.entropy_bits`, e essa é a medida que
-deve ser citada quando existir.
+informada por `gerador.ReceitaDeSenha.bits_de_entropia`, e essa é a medida
+que deve ser citada quando existir.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ import math
 from dataclasses import dataclass, field
 from enum import IntEnum
 
-from arca.crypto.generator import DIGITOS, MAIUSCULAS, MINUSCULAS, SIMBOLOS
-from arca.crypto.wordlists import common_passwords, wordlist
+from arca.crypto.gerador import DIGITOS, MAIUSCULAS, MINUSCULAS, SIMBOLOS
+from arca.crypto.listas_de_palavras import lista_de_palavras, senhas_comuns
 
 TAMANHO_MINIMO_PALAVRA = 3
 TAMANHO_MAXIMO_BLOCO = 8
@@ -41,7 +41,7 @@ _LEET = str.maketrans({
 })
 
 
-class Level(IntEnum):
+class Nivel(IntEnum):
     MUITO_FRACA = 0
     FRACA = 1
     RAZOAVEL = 2
@@ -51,36 +51,36 @@ class Level(IntEnum):
     @property
     def rotulo(self) -> str:
         return {
-            Level.MUITO_FRACA: "muito fraca",
-            Level.FRACA: "fraca",
-            Level.RAZOAVEL: "razoável",
-            Level.BOA: "boa",
-            Level.EXCELENTE: "excelente",
+            Nivel.MUITO_FRACA: "muito fraca",
+            Nivel.FRACA: "fraca",
+            Nivel.RAZOAVEL: "razoável",
+            Nivel.BOA: "boa",
+            Nivel.EXCELENTE: "excelente",
         }[self]
 
 
-_LIMIARES = ((28, Level.MUITO_FRACA), (36, Level.FRACA), (60, Level.RAZOAVEL),
-             (96, Level.BOA))
+_LIMIARES = ((28, Nivel.MUITO_FRACA), (36, Nivel.FRACA), (60, Nivel.RAZOAVEL),
+             (96, Nivel.BOA))
 
 
 @dataclass(slots=True)
-class Assessment:
+class Avaliacao:
     bits: float
-    level: Level
-    notes: list[str] = field(default_factory=list)
+    nivel: Nivel
+    notas: list[str] = field(default_factory=list)
 
     @property
-    def score(self) -> int:
+    def pontuacao(self) -> int:
         """Valor de 0 a 100, para barras de progresso."""
         return max(0, min(100, round(self.bits / 128 * 100)))
 
-    def crack_time(self, tentativas_por_segundo: float = TENTATIVAS_POR_SEGUNDO) -> str:
-        return format_duration(0.5 * (2 ** self.bits) / tentativas_por_segundo)
+    def tempo_de_quebra(self, tentativas_por_segundo: float = TENTATIVAS_POR_SEGUNDO) -> str:
+        return formatar_duracao(0.5 * (2 ** self.bits) / tentativas_por_segundo)
 
 
-def evaluate(senha: str) -> Assessment:
+def avaliar(senha: str) -> Avaliacao:
     if not senha:
-        return Assessment(0.0, Level.MUITO_FRACA, ["senha vazia"])
+        return Avaliacao(0.0, Nivel.MUITO_FRACA, ["senha vazia"])
 
     pool = _tamanho_do_conjunto(senha)
     separador = _separador(senha)
@@ -114,13 +114,13 @@ def evaluate(senha: str) -> Assessment:
 
     if len(senha) < 12:
         observacoes.append("comprimento abaixo de 12 caracteres")
-    if senha.casefold() in common_passwords():
+    if senha.casefold() in senhas_comuns():
         observacoes.insert(0, "esta senha aparece em listas públicas de vazamentos")
 
-    return Assessment(round(bits, 1), _classificar(bits), observacoes)
+    return Avaliacao(round(bits, 1), _classificar(bits), observacoes)
 
 
-def format_duration(segundos: float) -> str:
+def formatar_duracao(segundos: float) -> str:
     if segundos < 1:
         return "menos de um segundo"
     escalas = (
@@ -160,8 +160,8 @@ def _casar(senha: str, posicao: int, pool: int) -> tuple[float, int, str] | None
 
 
 def _casar_palavra(senha: str, posicao: int) -> tuple[float, int, str] | None:
-    dicionario = wordlist()
-    comuns = common_passwords()
+    dicionario = lista_de_palavras()
+    comuns = senhas_comuns()
     conhecidas = _indice(dicionario, comuns)
     limite = min(len(senha) - posicao, _maior_palavra(conhecidas))
 
@@ -278,8 +278,8 @@ def _tamanho_do_conjunto(senha: str) -> int:
     return max(pool, 2)
 
 
-def _classificar(bits: float) -> Level:
+def _classificar(bits: float) -> Nivel:
     for limite, nivel in _LIMIARES:
         if bits < limite:
             return nivel
-    return Level.EXCELENTE
+    return Nivel.EXCELENTE

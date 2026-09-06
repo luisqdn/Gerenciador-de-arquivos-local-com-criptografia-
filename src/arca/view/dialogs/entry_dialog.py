@@ -15,8 +15,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from arca.crypto.secret import ProtectedValue
-from arca.model.vault import Entry
+from arca.crypto.segredo import ValorProtegido
+from arca.model.cofre import Entrada
 from arca.view.dialogs.generator_dialog import pedir_senha_gerada
 from arca.view.widgets.password_edit import PasswordEdit
 
@@ -28,7 +28,7 @@ class EntryDialog(QDialog):
     é a separação que mantém a regra de negócio fora da camada de View.
     """
 
-    def __init__(self, parent: QWidget | None = None, entrada: Entry | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, entrada: Entrada | None = None) -> None:
         super().__init__(parent)
         self._entrada = entrada
         self.setWindowTitle("Editar entrada" if entrada else "Nova entrada")
@@ -73,30 +73,30 @@ class EntryDialog(QDialog):
     def changes(self) -> dict[str, Any]:
         """Alterações a repassar ao VaultController."""
         return {
-            "title": self._titulo.text().strip(),
-            "username": self._usuario.text().strip(),
-            "password": self._senha.text(),
+            "titulo": self._titulo.text().strip(),
+            "usuario": self._usuario.text().strip(),
+            "senha": self._senha.text(),
             "url": self._url.text().strip(),
-            "notes": self._notas.toPlainText(),
+            "notas": self._notas.toPlainText(),
         }
 
-    def build_entry(self) -> Entry:
+    def build_entry(self) -> Entrada:
         """Monta uma entrada nova a partir do formulário."""
         alteracoes = self.changes()
-        return Entry(
-            title=alteracoes["title"],
-            username=alteracoes["username"],
-            password=ProtectedValue(alteracoes["password"]),
+        return Entrada(
+            titulo=alteracoes["titulo"],
+            usuario=alteracoes["usuario"],
+            senha=ValorProtegido(alteracoes["senha"]),
             url=alteracoes["url"],
-            notes=alteracoes["notes"],
+            notas=alteracoes["notas"],
         )
 
-    def _preencher(self, entrada: Entry) -> None:
-        self._titulo.setText(entrada.title)
-        self._usuario.setText(entrada.username)
-        self._senha.set_text(entrada.password.reveal())
+    def _preencher(self, entrada: Entrada) -> None:
+        self._titulo.setText(entrada.titulo)
+        self._usuario.setText(entrada.usuario)
+        self._senha.set_text(entrada.senha.revelar())
         self._url.setText(entrada.url)
-        self._notas.setPlainText(entrada.notes)
+        self._notas.setPlainText(entrada.notas)
 
     # ------------------------------------------------------------------
     # Ações

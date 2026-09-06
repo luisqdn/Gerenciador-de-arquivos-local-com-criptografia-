@@ -11,24 +11,25 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
-from arca.crypto.kdf import KdfParameters, calibrate
-from arca.crypto.strength import Level, evaluate
-from arca.model.storage import Credentials
+from arca.crypto.forca import Nivel, avaliar
+from arca.model.armazenamento import Credenciais
 from arca.view.dialogs.generator_dialog import pedir_senha_gerada
 from arca.view.widgets.password_edit import PasswordEdit
 
 
 class MasterKeyDialog(QDialog):
-    """Coleta os novos fatores. A regravação fica a cargo do VaultController."""
+    """Coleta a nova senha. A regravação fica a cargo do VaultController.
 
-    def __init__(self, kdf_atual: KdfParameters, caminho_cofre: Path,
-                 parent: QWidget | None = None) -> None:
+    Não mexe nos parâmetros do Argon2id: trocar a senha mestra rescreve o
+    cofre com sal e IV novos, mas mantém o custo de derivação que já estava
+    gravado no cabeçalho.
+    """
+
+    def __init__(self, caminho_cofre: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._caminho = caminho_cofre
         self.setWindowTitle("Alterar senha mestra")
@@ -43,21 +44,6 @@ class MasterKeyDialog(QDialog):
         self._repetir.setEchoMode(QLineEdit.EchoMode.Password)
         self._repetir.setPlaceholderText("repita a nova senha")
         self._repetir.textChanged.connect(self._revalidar)
-
-        self._memoria = QSpinBox(self)
-        self._memoria.setRange(8, 1024)
-        self._memoria.setValue(kdf_atual.memory_kib // 1024)
-        self._memoria.setSuffix(" MiB")
-        self._iteracoes = QSpinBox(self)
-        self._iteracoes.setRange(1, 64)
-        self._iteracoes.setValue(kdf_atual.iterations)
-        self._threads = QSpinBox(self)
-        self._threads.setRange(1, 16)
-        self._threads.setValue(kdf_atual.parallelism)
-
-        calibrar = QPushButton("Recalibrar", self)
-        calibrar.setAutoDefault(False)
-        calibrar.clicked.connect(self._calibrar)
 
         self._aviso = QLabel(self)
         self._aviso.setObjectName("rotuloErro")
@@ -82,10 +68,6 @@ class MasterKeyDialog(QDialog):
         formulario = QFormLayout()
         formulario.addRow("Nova senha", self._senha)
         formulario.addRow("Confirmação", self._repetir)
-        formulario.addRow("Memória do Argon2id", self._memoria)
-        formulario.addRow("Iterações", self._iteracoes)
-        formulario.addRow("Threads", self._threads)
-        formulario.addRow("", calibrar)
 
         leiaute = QVBoxLayout(self)
         leiaute.addLayout(formulario)
@@ -96,26 +78,10 @@ class MasterKeyDialog(QDialog):
 
     # ------------------------------------------------------------------
 
-    def credentials(self) -> Credentials:
-        return Credentials.from_inputs(self._senha.text() or None)
-
-    def kdf(self) -> KdfParameters:
-        return KdfParameters(
-            memory_kib=self._memoria.value() * 1024,
-            iterations=self._iteracoes.value(),
-            parallelism=self._threads.value(),
-        )
+    def credentials(self) -> Credenciais:
+        return Credenciais.a_partir_de(self._senha.text() or None)
 
     # ------------------------------------------------------------------
-
-    def _calibrar(self) -> None:
-        self.setEnabled(False)
-        try:
-            parametros = calibrate(0.6, memory_kib=self._memoria.value() * 1024,
-                                   parallelism=self._threads.value())
-        finally:
-            self.setEnabled(True)
-        self._iteracoes.setValue(parametros.iterations)
 
     def _gerar_senha_mestra(self) -> None:
         gerada = pedir_senha_gerada(self, frase=True)
@@ -142,11 +108,11 @@ class MasterKeyDialog(QDialog):
     def _confirmar(self) -> None:
         senha = self._senha.text()
         if senha:
-            avaliacao = evaluate(senha)
-            if avaliacao.level <= Level.FRACA:
+            avaliacao = avaliar(senha)
+            if avaliacao.nivel <= Nivel.FRACA:
                 resposta = QMessageBox.question(
                     self, "Senha fraca",
-                    f"A nova senha foi classificada como {avaliacao.level.rotulo} "
+                    f"A nova senha foi classificada como {avaliacao.nivel.rotulo} "
                     f"({avaliacao.bits:.0f} bits). Continuar?",
                 )
                 if resposta != QMessageBox.StandardButton.Yes:

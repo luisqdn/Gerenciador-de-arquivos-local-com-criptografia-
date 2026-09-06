@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
 from arca import APP_NAME, APP_VERSION
 from arca.controller.vault_controller import VaultController
-from arca.model.errors import ArcaError
+from arca.model.erros import ErroArca
 from arca.view.dialogs.new_vault_dialog import NewVaultDialog
 from arca.view.dialogs.unlock_dialog import CODIGO_CRIAR, UnlockDialog
 from arca.view.main_window import MainWindow
@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if not controlador.start():
             return 0
-    except ArcaError as exc:
+    except ErroArca as exc:
         QMessageBox.critical(None, APP_NAME, str(exc))
         return 1
     return app.exec()

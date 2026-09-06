@@ -23,12 +23,11 @@ from __future__ import annotations
 
 import hashlib
 import struct
-import time
 from dataclasses import dataclass
 
 from argon2.low_level import Type, hash_secret_raw
 
-from arca.model.errors import VaultFormatError
+from arca.model.erros import ErroFormatoInvalido
 
 TAMANHO_CHAVE_TRANSFORMADA = 32
 TAMANHO_SAL = 32
@@ -52,84 +51,65 @@ _INDICE = struct.Struct("<Q")
 # --------------------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
-class KdfParameters:
+class ParametrosKdf:
     """Custo do Argon2id. O padrão mira algo em torno de meio segundo."""
 
-    memory_kib: int = 64 * 1024
-    iterations: int = 4
-    parallelism: int = 4
+    memoria_kib: int = 64 * 1024
+    iteracoes: int = 4
+    paralelismo: int = 4
 
-    def validate(self) -> None:
-        if not MEMORIA_MINIMA_KIB <= self.memory_kib <= MEMORIA_MAXIMA_KIB:
-            raise VaultFormatError(f"memória do KDF fora da faixa aceita: {self.memory_kib} KiB")
-        if not 1 <= self.iterations <= ITERACOES_MAXIMAS:
-            raise VaultFormatError(f"iterações do KDF fora da faixa aceita: {self.iterations}")
-        if not 1 <= self.parallelism <= PARALELISMO_MAXIMO:
-            raise VaultFormatError(f"paralelismo do KDF fora da faixa aceita: {self.parallelism}")
+    def validar(self) -> None:
+        if not MEMORIA_MINIMA_KIB <= self.memoria_kib <= MEMORIA_MAXIMA_KIB:
+            raise ErroFormatoInvalido(
+                f"memória do KDF fora da faixa aceita: {self.memoria_kib} KiB"
+            )
+        if not 1 <= self.iteracoes <= ITERACOES_MAXIMAS:
+            raise ErroFormatoInvalido(f"iterações do KDF fora da faixa aceita: {self.iteracoes}")
+        if not 1 <= self.paralelismo <= PARALELISMO_MAXIMO:
+            raise ErroFormatoInvalido(
+                f"paralelismo do KDF fora da faixa aceita: {self.paralelismo}"
+            )
 
-    def to_bytes(self) -> bytes:
-        self.validate()
-        return _FORMATO.pack(self.memory_kib, self.iterations, self.parallelism)
+    def para_bytes(self) -> bytes:
+        self.validar()
+        return _FORMATO.pack(self.memoria_kib, self.iteracoes, self.paralelismo)
 
     @classmethod
-    def from_bytes(cls, dados: bytes) -> KdfParameters:
+    def de_bytes(cls, dados: bytes) -> ParametrosKdf:
         if len(dados) != _FORMATO.size:
-            raise VaultFormatError("bloco de parâmetros do KDF com tamanho inválido")
+            raise ErroFormatoInvalido("bloco de parâmetros do KDF com tamanho inválido")
         params = cls(*_FORMATO.unpack(dados))
-        params.validate()
+        params.validar()
         return params
 
-    def describe(self) -> str:
+    def descrever(self) -> str:
         return (
-            f"Argon2id · {self.memory_kib // 1024} MiB · "
-            f"{self.iterations} iterações · {self.parallelism} threads"
+            f"Argon2id · {self.memoria_kib // 1024} MiB · "
+            f"{self.iteracoes} iterações · {self.paralelismo} threads"
         )
 
 
-def transform(chave_composta: bytes, sal: bytes, params: KdfParameters) -> bytes:
+def transformar(chave_composta: bytes, sal: bytes, params: ParametrosKdf) -> bytes:
     """Aplica o Argon2id sobre a chave composta."""
-    params.validate()
+    params.validar()
     if len(sal) < 16:
-        raise VaultFormatError("o sal do KDF precisa de ao menos 16 bytes")
+        raise ErroFormatoInvalido("o sal do KDF precisa de ao menos 16 bytes")
     return hash_secret_raw(
         secret=chave_composta,
         salt=sal,
-        time_cost=params.iterations,
-        memory_cost=params.memory_kib,
-        parallelism=params.parallelism,
+        time_cost=params.iteracoes,
+        memory_cost=params.memoria_kib,
+        parallelism=params.paralelismo,
         hash_len=TAMANHO_CHAVE_TRANSFORMADA,
         type=Type.ID,
     )
-
-
-def measure(params: KdfParameters) -> float:
-    """Tempo, em segundos, de uma derivação com esses parâmetros nesta máquina."""
-    inicio = time.perf_counter()
-    transform(b"\x00" * 32, b"\x00" * 32, params)
-    return time.perf_counter() - inicio
-
-
-def calibrate(alvo_segundos: float = 0.6, memory_kib: int = 64 * 1024,
-              parallelism: int = 4, teto_iteracoes: int = 64) -> KdfParameters:
-    """Sobe as iterações até cruzar o tempo alvo na máquina atual.
-
-    Mede uma derivação com uma única iteração e extrapola: o custo do
-    Argon2id cresce praticamente linear em `time_cost`. Uma medição só evita
-    que a calibração, sozinha, demore mais que abrir o cofre.
-    """
-    base = KdfParameters(memory_kib=memory_kib, iterations=1, parallelism=parallelism)
-    por_iteracao = measure(base)
-    if por_iteracao <= 0:
-        return KdfParameters(memory_kib, 4, parallelism)
-    estimativa = max(1, round(alvo_segundos / por_iteracao))
-    return KdfParameters(memory_kib, min(estimativa, teto_iteracoes), parallelism)
 
 
 # --------------------------------------------------------------------------
 # Chaves do cofre
 # --------------------------------------------------------------------------
 
-def composite_key(senha: bytes) -> bytes:
+def chave_composta(senha: bytes) -> bytes:
     """Resume a senha mestra nos 32 bytes que alimentam o Argon2id.
 
     A senha entra já resumida, o que elimina a ambiguidade de derivar sobre
@@ -149,21 +129,21 @@ def composite_key(senha: bytes) -> bytes:
 
 
 @dataclass(frozen=True, slots=True)
-class VaultKeys:
-    encryption: bytes
-    hmac_seed: bytes
+class ChavesDoCofre:
+    cifragem: bytes
+    semente_hmac: bytes
 
-    def header_key(self) -> bytes:
-        return block_key(self.hmac_seed, INDICE_CABECALHO)
+    def chave_do_cabecalho(self) -> bytes:
+        return chave_do_bloco(self.semente_hmac, INDICE_CABECALHO)
 
 
-def derive(chave_composta: bytes, sal: bytes, params: KdfParameters) -> VaultKeys:
-    transformada = transform(chave_composta, sal, params)
+def derivar(composta: bytes, sal: bytes, params: ParametrosKdf) -> ChavesDoCofre:
+    transformada = transformar(composta, sal, params)
     cifragem = hashlib.sha512(sal + transformada + _DOMINIO_CIFRAGEM).digest()[:32]
     semente = hashlib.sha512(sal + transformada + _DOMINIO_HMAC).digest()
-    return VaultKeys(encryption=cifragem, hmac_seed=semente)
+    return ChavesDoCofre(cifragem=cifragem, semente_hmac=semente)
 
 
-def block_key(semente_hmac: bytes, indice: int) -> bytes:
+def chave_do_bloco(semente_hmac: bytes, indice: int) -> bytes:
     """Subchave de 32 bytes para autenticar o bloco de índice informado."""
     return hashlib.sha512(_INDICE.pack(indice) + semente_hmac).digest()[:32]

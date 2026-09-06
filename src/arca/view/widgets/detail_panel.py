@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from arca.crypto.strength import evaluate
-from arca.model.vault import Entry
+from arca.crypto.forca import avaliar
+from arca.model.cofre import Entrada
 from arca.view.widgets.strength_bar import StrengthBar
 
 
@@ -38,7 +38,7 @@ class DetailPanel(QScrollArea):
         self._leiaute.setSpacing(10)
         self.setWidget(self._corpo)
 
-        self._entrada: Entry | None = None
+        self._entrada: Entrada | None = None
         self._senha_visivel = False
         self.clear()
 
@@ -55,7 +55,7 @@ class DetailPanel(QScrollArea):
         self._leiaute.addWidget(vazio)
         self._leiaute.addStretch(1)
 
-    def show_entry(self, entrada: Entry) -> None:
+    def show_entry(self, entrada: Entrada) -> None:
         trocou = entrada is not self._entrada
         self._entrada = entrada
         if trocou:
@@ -72,13 +72,13 @@ class DetailPanel(QScrollArea):
 
         self._limpar_leiaute()
 
-        titulo = QLabel(entrada.display_title, self._corpo)
+        titulo = QLabel(entrada.titulo_exibido, self._corpo)
         titulo.setObjectName("tituloDetalhe")
         titulo.setWordWrap(True)
         self._leiaute.addWidget(titulo)
 
-        if entrada.parent is not None:
-            caminho = QLabel(entrada.parent.path() or "/", self._corpo)
+        if entrada.pai is not None:
+            caminho = QLabel(entrada.pai.caminho() or "/", self._corpo)
             caminho.setObjectName("rotuloDiscreto")
             self._leiaute.addWidget(caminho)
 
@@ -87,21 +87,21 @@ class DetailPanel(QScrollArea):
         formulario.setHorizontalSpacing(12)
         formulario.setVerticalSpacing(8)
 
-        if entrada.username:
-            formulario.addRow("Usuário", self._valor_copiavel(entrada.username, "Usuário"))
+        if entrada.usuario:
+            formulario.addRow("Usuário", self._valor_copiavel(entrada.usuario, "Usuário"))
         formulario.addRow("Senha", self._linha_senha(entrada))
         if entrada.url:
             formulario.addRow("Endereço", self._link(entrada.url))
         self._leiaute.addLayout(formulario)
 
         barra = StrengthBar(self._corpo)
-        senha = entrada.password.reveal()
+        senha = entrada.senha.revelar()
         if senha:
-            barra.set_assessment(evaluate(senha))
+            barra.set_assessment(avaliar(senha))
         self._leiaute.addWidget(barra)
 
-        if entrada.notes:
-            notas = QLabel(entrada.notes, self._corpo)
+        if entrada.notas:
+            notas = QLabel(entrada.notas, self._corpo)
             notas.setWordWrap(True)
             notas.setObjectName("notasDetalhe")
             notas.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -110,13 +110,13 @@ class DetailPanel(QScrollArea):
         self._leiaute.addWidget(self._rodape(entrada))
         self._leiaute.addStretch(1)
 
-    def _linha_senha(self, entrada: Entry) -> QWidget:
+    def _linha_senha(self, entrada: Entrada) -> QWidget:
         caixa = QWidget(self._corpo)
         leiaute = QVBoxLayout(caixa)
         leiaute.setContentsMargins(0, 0, 0, 0)
         leiaute.setSpacing(4)
 
-        senha = entrada.password.reveal()
+        senha = entrada.senha.revelar()
         texto = senha if self._senha_visivel else "•" * min(len(senha), 24)
         rotulo = QLabel(texto or "(sem senha)", caixa)
         rotulo.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -166,10 +166,10 @@ class DetailPanel(QScrollArea):
         botao.clicked.connect(lambda: self.open_url_requested.emit(url))
         return botao
 
-    def _rodape(self, entrada: Entry) -> QWidget:
+    def _rodape(self, entrada: Entrada) -> QWidget:
         partes = [
-            f"criada em {entrada.times.created.strftime('%d/%m/%Y')}",
-            f"modificada em {entrada.times.modified.strftime('%d/%m/%Y')}",
+            f"criada em {entrada.tempos.criado.strftime('%d/%m/%Y')}",
+            f"modificada em {entrada.tempos.modificado.strftime('%d/%m/%Y')}",
         ]
 
         rodape = QLabel(" · ".join(partes), self._corpo)

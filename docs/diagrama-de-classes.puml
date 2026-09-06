@@ -1,0 +1,151 @@
+@startuml diagrama-de-classes
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+hide empty members
+
+package "arca.controller" {
+  class VaultController {
+    +state: SessionState
+    +vault: Cofre
+    +dirty: bool
+    +create(caminho, credenciais): void
+    +open(caminho, credenciais): void
+    +save(): void
+    +close(): void
+    +add_entry(grupo, entrada): Entrada
+    +delete_entry(entrada): void
+  }
+
+  class SessionState {
+    +path: Path
+    +header: Cabecalho
+    +dirty: bool
+  }
+
+  class ProcessMonitor {
+    +elevada: bool
+    +elevar(): bool
+    +restaurar(): void
+  }
+}
+
+package "arca.model" {
+  class Cofre {
+    +metadados: MetadadosDoCofre
+    +raiz: Grupo
+    +novo(nome): Cofre
+    +entradas(): Iterator
+    +apagar_entrada(entrada): void
+    +mover_entrada(entrada, destino): void
+  }
+
+  class MetadadosDoCofre {
+    +nome: str
+    +criado: datetime
+  }
+
+  class Grupo {
+    +nome: str
+    +grupos: list
+    +entradas: list
+    +adicionar_grupo(grupo): Grupo
+    +adicionar_entrada(entrada): Entrada
+  }
+
+  class Entrada {
+    +titulo: str
+    +usuario: str
+    +senha: ValorProtegido
+    +url: str
+    +notas: str
+  }
+
+  class Cabecalho {
+    +kdf: ParametrosKdf
+    +sal_mestre: bytes
+    +iv: bytes
+    +descrever(): str
+  }
+
+  class Credenciais {
+    +senha: BytesSecretos
+    +para_chave_composta(): bytes
+  }
+
+  class OpcoesDeGravacao {
+    +compressao: Compressao
+    +kdf: ParametrosKdf
+  }
+
+  enum Compressao {
+    GZIP
+  }
+
+  class ErroArca
+  class ErroFormatoInvalido
+  class ErroDeIntegridade
+  class ErroCredenciaisInvalidas
+  class ErroCofreTrancado
+
+  ErroArca <|-- ErroFormatoInvalido
+  ErroArca <|-- ErroDeIntegridade
+  ErroArca <|-- ErroCredenciaisInvalidas
+  ErroArca <|-- ErroCofreTrancado
+}
+
+package "arca.crypto" {
+  class ParametrosKdf {
+    +memoria_kib: int
+    +iteracoes: int
+    +paralelismo: int
+  }
+
+  class ValorProtegido {
+    +revelar(): str
+  }
+
+  class BytesSecretos {
+    +valor(): bytes
+    +apagar(): void
+  }
+
+  class ReceitaDeSenha {
+    +comprimento: int
+    +bits_de_entropia(): float
+  }
+
+  class ReceitaDeFraseSenha {
+    +palavras: int
+    +bits_de_entropia(): float
+  }
+
+  class Avaliacao {
+    +bits: float
+    +nivel: Nivel
+  }
+
+  enum Nivel {
+    MUITO_FRACA
+    FRACA
+    RAZOAVEL
+    BOA
+    EXCELENTE
+  }
+}
+
+VaultController "1" *-- "1" SessionState : state
+VaultController "1" o-- "0..1" Cofre : vault
+Cofre "1" *-- "1" MetadadosDoCofre : metadados
+Cofre "1" *-- "1" Grupo : raiz
+Grupo "1" *-- "0..*" Grupo : subgrupos
+Grupo "1" *-- "0..*" Entrada : entradas
+Entrada "1" o-- "1" ValorProtegido : senha
+Cabecalho "1" *-- "1" ParametrosKdf : kdf
+OpcoesDeGravacao "1" *-- "1" ParametrosKdf : kdf
+OpcoesDeGravacao "1" *-- "1" Compressao : compressao
+Credenciais "1" o-- "0..1" BytesSecretos : senha
+Avaliacao "1" *-- "1" Nivel : nivel
+VaultController ..> Credenciais : usa
+VaultController ..> ErroCofreTrancado : lança
+
+@enduml
