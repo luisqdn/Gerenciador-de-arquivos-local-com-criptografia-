@@ -1,11 +1,4 @@
-"""Janela principal do Arca.
-
-Organização em três painéis: a árvore de grupos à esquerda, a lista de
-entradas ao centro e os detalhes da entrada selecionada à direita. A janela
-observa o VaultController e nunca toca no modelo diretamente -- toda mutação
-passa pelo controlador, que é quem decide sobre lixeira e estado de
-"não salvo".
-"""
+"""Janela principal do Arca."""
 
 from __future__ import annotations
 
@@ -42,17 +35,11 @@ from arca.view.dialogs.entry_dialog import EntryDialog
 from arca.view.dialogs.master_key_dialog import MasterKeyDialog
 from arca.view.widgets.detail_panel import DetailPanel
 
-# Tempo que a senha copiada permanece na área de transferência.
 SEGUNDOS_LIMPEZA = 20
 
 
 class MainWindow(QMainWindow):
-    """Janela de trabalho de um cofre aberto.
-
-    Emite `travado` quando o cofre é fechado mas a aplicação continua -- o
-    controlador deve então mostrar a tela de destravamento -- e `encerrado`
-    quando o usuário fecha a janela para valer.
-    """
+    """Janela de trabalho de um cofre aberto."""
 
     travado = Signal()
     encerrado = Signal()
@@ -76,10 +63,6 @@ class MainWindow(QMainWindow):
 
         servico.subscribe(self._ao_evento_do_servico)
         self._recarregar_tudo()
-
-    # ------------------------------------------------------------------
-    # Construção
-    # ------------------------------------------------------------------
 
     def _montar_paineis(self) -> None:
         self._arvore = QTreeView(self)
@@ -163,10 +146,6 @@ class MainWindow(QMainWindow):
             acao.setShortcut(atalho)
         return acao
 
-    # ------------------------------------------------------------------
-    # Sincronização com o modelo
-    # ------------------------------------------------------------------
-
     def _recarregar_tudo(self) -> None:
         self._modelo_arvore = GroupTreeModel(self._servico.vault, self)
         self._arvore.setModel(self._modelo_arvore)
@@ -204,14 +183,8 @@ class MainWindow(QMainWindow):
         )
 
     def _ao_evento_do_servico(self, _evento: str) -> None:
-        # O evento de fechamento também chega aqui, e nesse ponto o modelo já
-        # foi descartado: não há título a atualizar.
         if self._servico.is_open:
             self._atualizar_titulo()
-
-    # ------------------------------------------------------------------
-    # Seleção
-    # ------------------------------------------------------------------
 
     def _grupo_selecionado(self) -> Grupo | None:
         indices = self._arvore.selectionModel().selectedIndexes()
@@ -251,10 +224,6 @@ class MainWindow(QMainWindow):
         if linha >= 0:
             self._tabela.selectRow(linha)
             self._tabela.setFocus()
-
-    # ------------------------------------------------------------------
-    # Entradas
-    # ------------------------------------------------------------------
 
     def nova_entrada(self) -> None:
         if self._somente_leitura():
@@ -311,10 +280,6 @@ class MainWindow(QMainWindow):
         self._atualizar_lista()
         self._selecionar_entrada(entrada)
 
-    # ------------------------------------------------------------------
-    # Cópia
-    # ------------------------------------------------------------------
-
     def copiar_senha(self) -> None:
         entrada = self._entrada_selecionada()
         if entrada is None:
@@ -353,10 +318,6 @@ class MainWindow(QMainWindow):
         destino = url if "://" in url else f"https://{url}"
         if not QDesktopServices.openUrl(QUrl(destino)):
             webbrowser.open(destino)
-
-    # ------------------------------------------------------------------
-    # Grupos
-    # ------------------------------------------------------------------
 
     def novo_grupo(self) -> None:
         if self._somente_leitura():
@@ -414,10 +375,6 @@ class MainWindow(QMainWindow):
         self._atualizar_lista()
         self.statusBar().showMessage(f"{removidos} entrada(s) apagada(s)", 4000)
 
-    # ------------------------------------------------------------------
-    # Arquivo
-    # ------------------------------------------------------------------
-
     def salvar(self) -> bool:
         if self._servico.state.read_only:
             self.statusBar().showMessage("cofre aberto somente para leitura", 4000)
@@ -464,10 +421,6 @@ class MainWindow(QMainWindow):
             return OpcoesDeGravacao()
         return OpcoesDeGravacao.a_partir_do_cabecalho(cabecalho)
 
-    # ------------------------------------------------------------------
-    # Ferramentas
-    # ------------------------------------------------------------------
-
     def alterar_senha_mestra(self) -> None:
         if self._somente_leitura():
             return
@@ -486,10 +439,6 @@ class MainWindow(QMainWindow):
             return
         QMessageBox.information(self, "Senha mestra alterada",
                                 "O cofre foi regravado com as novas credenciais.")
-
-    # ------------------------------------------------------------------
-    # Menus de contexto
-    # ------------------------------------------------------------------
 
     def _menu_de_entrada(self, posicao) -> None:
         if self._entrada_selecionada() is None:
@@ -517,8 +466,6 @@ class MainWindow(QMainWindow):
         menu.addAction(self._acao("Esvaziar lixeira", self.esvaziar_lixeira))
         menu.exec(self._arvore.viewport().mapToGlobal(posicao))
 
-    # ------------------------------------------------------------------
-
     def _somente_leitura(self) -> bool:
         if self._servico.state.read_only:
             self.statusBar().showMessage(
@@ -537,19 +484,11 @@ class MainWindow(QMainWindow):
             self._servico.close()
         super().closeEvent(evento)
         if not self._trancado:
-            # Fechar pela barra de título encerra o programa. O sinal é
-            # necessário porque a aplicação desliga quitOnLastWindowClosed
-            # para poder trocar de janela ao trancar.
             self.encerrado.emit()
 
 
 def _ajustar_linhas_alternadas(tabela: QTableView) -> None:
-    """Deriva a cor das linhas pares do próprio fundo da tabela.
-
-    Deixar isso para a paleta do sistema produz resultados imprevisíveis: em
-    alguns temas o papel AlternateBase vem com a cor de destaque, o que pinta
-    metade da lista com a cor de seleção.
-    """
+    """Deriva a cor das linhas pares do próprio fundo da tabela."""
     paleta = tabela.palette()
     fundo = paleta.color(QPalette.ColorRole.Base)
     alternada = fundo.lighter(118) if fundo.lightness() < 128 else fundo.darker(104)

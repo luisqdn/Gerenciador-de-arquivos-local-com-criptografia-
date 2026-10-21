@@ -1,13 +1,4 @@
-"""Modelo de dados do cofre.
-
-A árvore é a mesma estrutura que o usuário enxerga: um grupo raiz, subgrupos
-em qualquer profundidade e entradas dentro deles. As operações de mutação
-ficam concentradas aqui, e não na interface, para que a regra de negócio não
-se espalhe pela camada de apresentação.
-
-Senhas nunca são guardadas em `str`: usam `ValorProtegido`, que as mantém
-mascaradas na heap.
-"""
+"""Modelo de dados do cofre."""
 
 from __future__ import annotations
 
@@ -170,10 +161,6 @@ class Cofre:
             atual = proximo
         return atual
 
-    # ------------------------------------------------------------------
-    # Lixeira
-    # ------------------------------------------------------------------
-
     def lixeira(self, criar: bool = True) -> Grupo | None:
         if self.metadados.lixeira_uuid is not None:
             existente = self.encontrar_grupo(self.metadados.lixeira_uuid)
@@ -205,10 +192,6 @@ class Cofre:
         lixeira.grupos.clear()
         lixeira.tempos.atualizar()
         return removidos
-
-    # ------------------------------------------------------------------
-    # Remoção e movimentação
-    # ------------------------------------------------------------------
 
     def apagar_entrada(self, entrada: Entrada, permanente: bool = False) -> None:
         origem = entrada.pai

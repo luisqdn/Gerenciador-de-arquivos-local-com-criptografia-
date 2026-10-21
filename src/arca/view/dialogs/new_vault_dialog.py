@@ -117,8 +117,6 @@ class NewVaultDialog(QDialog):
 
         self._revalidar()
 
-    # ------------------------------------------------------------------
-
     def service(self) -> VaultController | None:
         return self._servico
 
@@ -127,14 +125,9 @@ class NewVaultDialog(QDialog):
         if not gerada:
             return
         self._senha.set_text(gerada)
-        # Repetir uma senha que o usuário não digitou não confirma nada, e
-        # revelar é o que permite anotá-la antes de fechar a janela -- não
-        # há recuperação depois.
         self._repetir.setText(gerada)
         self._senha.reveal(True)
         self._revalidar()
-
-    # ------------------------------------------------------------------
 
     def _escolher_destino(self) -> None:
         caminho, _ = QFileDialog.getSaveFileName(
@@ -196,8 +189,6 @@ class NewVaultDialog(QDialog):
         criador.concluido.connect(thread.quit)
         criador.falhou.connect(thread.quit)
         thread.finished.connect(criador.deleteLater)
-        # Mesma armadilha do UnlockDialog: sem uma referencia do lado Python o
-        # criador e coletado ao fim deste metodo e `started` nao acha o slot.
         self._criador = criador
         self._thread = thread
         thread.start()

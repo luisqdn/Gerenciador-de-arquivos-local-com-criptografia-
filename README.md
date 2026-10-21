@@ -11,8 +11,6 @@ tomada. O formato de arquivo está especificado em
 [docs/arquitetura.md](docs/arquitetura.md), e os limites da proteção em
 [docs/modelo-de-ameacas.md](docs/modelo-de-ameacas.md).
 
-![Janela principal do Arca](docs/imagens/janela-principal.png)
-
 ## O que ele faz
 
 - Cofre em arquivo único (`.arca`), cifrado com AES-256 e autenticado por
@@ -55,8 +53,6 @@ arca                        # abre a tela de destravamento
 arca pessoal.arca           # já aponta para um cofre
 python -m arca              # equivalente, sem instalar o atalho
 ```
-
-![Tela de destravamento](docs/imagens/tela-de-abertura.png)
 
 Na primeira execução, use **Criar cofre novo…** na tela de abertura. O custo
 do Argon2id (memória, iterações, threads) já vem com um valor padrão seguro

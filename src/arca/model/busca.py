@@ -1,18 +1,4 @@
-"""Busca sobre as entradas do cofre.
-
-A sintaxe aceita filtros no formato `campo:valor` misturados a termos livres.
-Termos livres batem em título, usuário, URL, notas e caminho do grupo;
-filtros batem apenas no campo indicado. Tudo é conjuntivo: uma entrada só
-entra no resultado se satisfizer todos os termos.
-
-    banco                     -> qualquer campo textual contém "banco"
-    usuario:ana url:gov.br    -> usuário contém "ana" e URL contém "gov.br"
-    grupo:bancos fatura       -> está em "Bancos" e "fatura" em algum campo
-
-Senhas não são pesquisáveis. Isso é intencional: permitir `senha:x` daria a
-quem estiver de passagem pelo computador uma forma de confirmar palpites sem
-nunca revelar a senha na tela.
-"""
+"""Busca sobre as entradas do cofre."""
 
 from __future__ import annotations
 
@@ -49,7 +35,6 @@ def interpretar(texto: str) -> Consulta:
     try:
         pedacos = shlex.split(texto)
     except ValueError:
-        # Aspas desbalanceadas enquanto o usuário digita: trata como texto puro.
         pedacos = texto.split()
 
     for pedaco in pedacos:

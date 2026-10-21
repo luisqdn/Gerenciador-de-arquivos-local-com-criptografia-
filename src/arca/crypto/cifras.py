@@ -1,16 +1,4 @@
-"""Cifragem simétrica do corpo do cofre.
-
-O corpo é cifrado com AES-256 em modo CBC e autenticado à parte, por
-HMAC-SHA256 (esquema encrypt-then-MAC, ver crypto/mac.py). Separar
-confidencialidade de autenticidade é proposital: permite verificar a
-integridade de cada bloco antes de decifrar qualquer coisa, o que reduz a
-superfície exposta a um arquivo malicioso.
-
-O cabeçalho guarda um identificador de cifra de 1 byte. Hoje só existe uma
-suíte (AES-256-CBC), então o identificador não escolhe nada -- ele só faz o
-formato recusar de imediato um arquivo gravado por uma suíte futura
-desconhecida, em vez de tentar decifrá-lo com a suíte errada.
-"""
+"""Cifragem simétrica do corpo do cofre."""
 
 from __future__ import annotations
 
@@ -35,8 +23,7 @@ def validar_identificador_de_cifra(valor: int) -> int:
 
 
 def novo_iv() -> bytes:
-    """Sorteia um IV. O sal do KDF também muda a cada gravação, então a
-    chave de cifragem nunca se repete sob o mesmo IV."""
+    """Sorteia um IV."""
     return os.urandom(TAMANHO_IV)
 
 
@@ -65,5 +52,4 @@ def descriptografar(chave: bytes, iv: bytes, cifrado: bytes) -> bytes:
     try:
         return removedor.update(bloco) + removedor.finalize()
     except ValueError as exc:
-        # Com o HMAC já verificado, isso só ocorre em bug de gravação.
         raise ErroFormatoInvalido("preenchimento PKCS#7 inválido") from exc

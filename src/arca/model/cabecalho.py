@@ -1,20 +1,4 @@
-"""Cabeçalhos do arquivo .arca.
-
-São dois, com papéis distintos:
-
-* o cabeçalho externo fica em texto claro, porque descreve como decifrar o
-  resto (suíte, IV, sal e parâmetros do KDF). Ele é apenas autenticado, por
-  SHA-256 mais HMAC-SHA256, e a chave desse HMAC só existe depois que a senha
-  correta passa pelo KDF. Alterar o cabeçalho para, por exemplo, rebaixar o
-  custo do Argon2id derruba a verificação;
-* o cabeçalho interno viaja dentro da área cifrada e guarda a chave da cifra
-  de fluxo que mascara os campos protegidos do payload.
-
-Ambos usam o mesmo formato TLV: identificador de 1 byte, tamanho de 4 bytes
-em little-endian e o valor. O identificador 0 encerra a lista. Campos
-desconhecidos com identificador a partir de 0x80 são ignorados na leitura, o
-que abre espaço para extensões compatíveis; abaixo disso, são fatais.
-"""
+"""Cabeçalhos do arquivo .arca."""
 
 from __future__ import annotations
 

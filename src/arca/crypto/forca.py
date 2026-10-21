@@ -1,24 +1,4 @@
-"""Estimativa de força de uma senha.
-
-A conta ingênua -- comprimento vezes o logaritmo do alfabeto -- premia
-"Senha123!" com 59 bits, o que é falso: um atacante não sorteia caracteres,
-ele testa palavras, sequências e repetições primeiro. O estimador aqui
-segmenta a senha em pedaços reconhecíveis e soma o custo de cada pedaço,
-que é a ideia central de estimadores como o zxcvbn, em versão reduzida.
-
-Padrões reconhecidos:
-
-* palavras da lista embutida e senhas frequentes em vazamentos, inclusive
-  com substituições do tipo "a" por "@" e maiúsculas trocadas;
-* sequências crescentes ou decrescentes de código (abc, 987, xyz);
-* repetição de um mesmo caractere e repetição de um bloco inteiro;
-* o resto, cobrado como sorteio uniforme sobre os conjuntos presentes.
-
-O resultado é sempre uma estimativa por cima do que o atacante gasta, nunca
-uma garantia. Senhas geradas pelo próprio Arca têm entropia exata conhecida,
-informada por `gerador.ReceitaDeSenha.bits_de_entropia`, e essa é a medida
-que deve ser citada quando existir.
-"""
+"""Estimativa de força de uma senha."""
 
 from __future__ import annotations
 
@@ -32,7 +12,6 @@ from arca.crypto.listas_de_palavras import lista_de_palavras, senhas_comuns
 TAMANHO_MINIMO_PALAVRA = 3
 TAMANHO_MAXIMO_BLOCO = 8
 
-# Cenário de referência: banco de dados vazado, hash rápido, GPU dedicada.
 TENTATIVAS_POR_SEGUNDO = 1e10
 
 _LEET = str.maketrans({
@@ -91,8 +70,6 @@ def avaliar(senha: str) -> Avaliacao:
 
     while posicao < len(senha):
         if senha[posicao] == separador:
-            # O separador de uma frase-senha é escolhido uma única vez; cobrar
-            # cada ocorrência inflaria a estimativa em vários bits.
             posicao += 1
             continue
         pedaco = _casar(senha, posicao, pool)
@@ -141,10 +118,6 @@ def formatar_duracao(segundos: float) -> str:
     return f"{round(valor)} milênios"
 
 
-# --------------------------------------------------------------------------
-# Segmentação
-# --------------------------------------------------------------------------
-
 def _casar(senha: str, posicao: int, pool: int) -> tuple[float, int, str] | None:
     """Devolve (bits, tamanho, observação) do maior padrão que começa aqui."""
     candidatos = [
@@ -172,9 +145,9 @@ def _casar_palavra(senha: str, posicao: int) -> tuple[float, int, str] | None:
             continue
         base = math.log2(len(conhecidas))
         if trecho != trecho.lower():
-            base += 1  # variação de caixa
+            base += 1
         if normalizado != trecho.casefold():
-            base += 1  # substituições do tipo leet
+            base += 1
         nota = (
             "contém senha comum"
             if normalizado in comuns
@@ -222,15 +195,9 @@ def _casar_sequencia(senha: str, posicao: int) -> tuple[float, int, str] | None:
         tamanho += 1
     if tamanho < 3:
         return None
-    # O atacante precisa acertar o ponto de partida e o comprimento; a direção
-    # custa um bit.
     custo = math.log2(94) + math.log2(tamanho) + 1
     return custo, tamanho, "contém uma sequência previsível"
 
-
-# --------------------------------------------------------------------------
-# Auxiliares
-# --------------------------------------------------------------------------
 
 _cache_indice: frozenset[str] | None = None
 _cache_maior: int | None = None

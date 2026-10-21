@@ -1,32 +1,4 @@
-"""Leitura e gravação do arquivo .arca.
-
-Este módulo é o único ponto do projeto que conhece o formato completo. A
-sequência de bytes é:
-
-    cabeçalho externo                   (texto claro, TLV)
-    SHA-256 do cabeçalho                (32 bytes)
-    HMAC-SHA256 do cabeçalho            (32 bytes)
-    fluxo de blocos autenticados        (ver crypto/mac.py)
-        -> ao ser decifrado, contém:
-           cabeçalho interno            (TLV)
-           payload JSON                 (comprimido, se o cabeçalho disser)
-
-Decisões que valem registro:
-
-* o sal do KDF e o IV são sorteados de novo a cada gravação. Isso troca a
-  chave de cifragem a cada salvamento e elimina qualquer chance de reúso de
-  IV sob a mesma chave -- o custo é uma derivação Argon2id por save;
-* a gravação é atômica: escreve em arquivo temporário no mesmo diretório,
-  força a descarga em disco e só então substitui o original. Uma queda de
-  energia no meio do processo deixa o cofre antigo intacto;
-* a verificação acontece antes da decifragem. Um cofre adulterado é
-  rejeitado sem que um único byte de texto cifrado chegue à cifra.
-
-As funções de baixo nível (`criptografar`, `descriptografar`, `derivar_chaves`
-etc.) são apenas apelidos em português para as funções equivalentes da camada
-`crypto` -- as ferramentas de fato moram lá, isoladas por serem o núcleo
-criptográfico do projeto (ver `crypto/__init__.py`).
-"""
+"""Leitura e gravação do arquivo .arca."""
 
 from __future__ import annotations
 
@@ -164,8 +136,6 @@ def carregar(caminho: Path, credenciais: Credenciais) -> CofreCarregado:
     try:
         verificar_mac_do_cabecalho(crus, mac, chaves.chave_do_cabecalho())
     except ErroDeIntegridade as exc:
-        # Neste ponto o cabeçalho já passou pelo SHA-256, então a hipótese
-        # esmagadoramente mais provável é credencial errada, e não adulteração.
         raise ErroCredenciaisInvalidas("senha mestra incorreta") from exc
 
     corpo_cifrado = ler_blocos(fluxo, chaves.semente_hmac)
@@ -193,10 +163,6 @@ def trocar_credenciais(caminho: Path, atuais: Credenciais, novas: Credenciais,
     salvar(caminho, aberto.cofre, novas, escolhas)
 
 
-# --------------------------------------------------------------------------
-# Corpo cifrado
-# --------------------------------------------------------------------------
-
 def _montar_corpo(cofre: Cofre, cabecalho: Cabecalho, proteger: bool) -> bytes:
     interno = CabecalhoInterno(
         tipo_da_cifra_de_fluxo=(
@@ -209,8 +175,6 @@ def _montar_corpo(cofre: Cofre, cabecalho: Cabecalho, proteger: bool) -> bytes:
     )
     payload = codificador.serializar_conteudo(cofre, cifra)
     if cabecalho.compressao is Compressao.GZIP:
-        # mtime fixo: o formato não deve vazar o horário do salvamento em claro
-        # nem produzir diffs espúrios entre duas gravações do mesmo conteúdo.
         payload = gzip.compress(payload, compresslevel=6, mtime=0)
     return interno.para_bytes() + payload
 
@@ -227,10 +191,6 @@ def _desmontar_corpo(corpo: bytes, cabecalho: Cabecalho) -> Cofre:
     )
     return codificador.carregar_conteudo(payload, cifra)
 
-
-# --------------------------------------------------------------------------
-# Escrita em disco
-# --------------------------------------------------------------------------
 
 def _gravar_atomico(destino: Path, conteudo: bytes, fazer_backup: bool) -> None:
     destino.parent.mkdir(parents=True, exist_ok=True)

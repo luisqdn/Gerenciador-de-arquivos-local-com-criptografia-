@@ -22,12 +22,7 @@ from arca.view.widgets.password_edit import PasswordEdit
 
 
 class MasterKeyDialog(QDialog):
-    """Coleta a nova senha. A regravação fica a cargo do VaultController.
-
-    Não mexe nos parâmetros do Argon2id: trocar a senha mestra rescreve o
-    cofre com sal e IV novos, mas mantém o custo de derivação que já estava
-    gravado no cabeçalho.
-    """
+    """Coleta a nova senha. A regravação fica a cargo do VaultController."""
 
     def __init__(self, caminho_cofre: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -76,21 +71,14 @@ class MasterKeyDialog(QDialog):
         leiaute.addWidget(self._botoes)
         self._revalidar()
 
-    # ------------------------------------------------------------------
-
     def credentials(self) -> Credenciais:
         return Credenciais.a_partir_de(self._senha.text() or None)
-
-    # ------------------------------------------------------------------
 
     def _gerar_senha_mestra(self) -> None:
         gerada = pedir_senha_gerada(self, frase=True)
         if not gerada:
             return
         self._senha.set_text(gerada)
-        # Repetir uma senha que o usuário não digitou não confirma nada, e
-        # revelar é o que permite anotá-la antes de fechar a janela -- não há
-        # recuperação depois.
         self._repetir.setText(gerada)
         self._senha.reveal(True)
         self._revalidar()

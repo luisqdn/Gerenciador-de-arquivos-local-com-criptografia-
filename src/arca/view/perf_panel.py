@@ -1,9 +1,4 @@
-"""Telinha flutuante com o consumo de recursos durante a geração.
-
-Fica no canto superior direito da tela, sem moldura e sempre por cima, no
-formato de um HUD. Ela não calcula nada: pergunta os números ao
-`ProcessMonitor` do Controller e os desenha.
-"""
+"""Telinha flutuante com o consumo de recursos durante a geração."""
 
 from __future__ import annotations
 
@@ -16,10 +11,7 @@ from arca.controller.perf import ProcessMonitor, formatar_bytes
 INTERVALO_MS = 250
 MARGEM = 18
 
-# O valor mais largo que a coluna da direita chega a exibir. Reservar essa
-# largura desde o início evita que o painel cresça depois de posicionado --
-# ele cresceria para a direita, para fora da tela.
-VALOR_MAIS_LARGO = "gerador-de-senhas"
+VALOR_MAIS_LARGO = "abaixo do normal"
 
 _ESTILO = """
 QFrame#painelDesempenho {
@@ -40,13 +32,10 @@ class PerfPanel(QFrame):
     """HUD de memória, prioridade e tempo de geração."""
 
     def __init__(self, monitor: ProcessMonitor, parent: QWidget | None = None) -> None:
-        # Qt.Tool evita uma entrada na barra de tarefas; sem pai, para que a
-        # janelinha não seja recortada pelo diálogo que a criou.
         super().__init__(parent, Qt.WindowType.Tool
                          | Qt.WindowType.FramelessWindowHint
                          | Qt.WindowType.WindowStaysOnTopHint)
         self._monitor = monitor
-        self._geracoes = 0
 
         self.setObjectName("painelDesempenho")
         self.setStyleSheet(_ESTILO)
@@ -62,8 +51,6 @@ class PerfPanel(QFrame):
         self._pico = self._valor(mono)
         self._prioridade = self._valor(mono)
         self._duracao = self._valor(mono)
-        self._contagem = self._valor(mono)
-        self._thread = self._valor(mono)
 
         grade = QGridLayout(self)
         grade.setContentsMargins(14, 10, 14, 10)
@@ -74,9 +61,7 @@ class PerfPanel(QFrame):
             ("memória", self._memoria),
             ("pico", self._pico),
             ("prioridade", self._prioridade),
-            ("última geração", self._duracao),
-            ("gerações", self._contagem),
-            ("thread", self._thread),
+            ("tempo gasto", self._duracao),
         ), start=1):
             grade.addWidget(QLabel(rotulo, self), linha, 0)
             grade.addWidget(campo, linha, 1)
@@ -86,10 +71,6 @@ class PerfPanel(QFrame):
 
         self._atualizar_memoria()
         self._duracao.setText("—")
-        self._contagem.setText("0")
-        self._thread.setText("—")
-
-    # ------------------------------------------------------------------
 
     def _valor(self, fonte) -> QLabel:
         rotulo = QLabel("—", self)
@@ -107,17 +88,11 @@ class PerfPanel(QFrame):
         self._prioridade.setObjectName(
             "alertaDesempenho" if self._monitor.elevada else "valorDesempenho"
         )
-        # Trocar o objectName não reaplica a folha de estilo sozinho.
         self._prioridade.style().unpolish(self._prioridade)
         self._prioridade.style().polish(self._prioridade)
 
-    # ------------------------------------------------------------------
-
-    def registrar_geracao(self, nanos: int, thread: str) -> None:
-        """Anota o custo da última geração vinda da thread de trabalho."""
-        self._geracoes += 1
-        self._contagem.setText(str(self._geracoes))
-        self._thread.setText(thread)
+    def registrar_geracao(self, nanos: int) -> None:
+        """Anota o tempo gasto na última geração."""
         self._duracao.setText(_formatar_duracao(nanos))
         self._atualizar_memoria()
         if self.isVisible():
@@ -130,12 +105,7 @@ class PerfPanel(QFrame):
         self._relogio.start(INTERVALO_MS)
 
     def _reposicionar(self) -> None:
-        """Recosta o painel no canto, sem deixá-lo sair da tela.
-
-        O limite inferior em `max` é o que importa: se o painel ficar mais
-        largo que o previsto, é melhor encostá-lo na borda esquerda da área
-        útil do que deixá-lo transbordar pela direita, onde some.
-        """
+        """Recosta o painel no canto, sem deixá-lo sair da tela."""
         self.adjustSize()
         tela = QGuiApplication.primaryScreen()
         if tela is None:

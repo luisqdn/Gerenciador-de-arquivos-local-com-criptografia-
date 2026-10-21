@@ -1,9 +1,4 @@
-"""Hierarquia de exceções do núcleo.
-
-Todas as falhas previsíveis derivam de ErroArca, para que a camada de
-apresentação possa tratar um único tipo raiz e ainda distinguir
-os casos que importam ao usuário.
-"""
+"""Hierarquia de exceções do núcleo."""
 
 
 class ErroArca(Exception):

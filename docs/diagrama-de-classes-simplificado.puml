@@ -1,0 +1,25 @@
+@startuml diagrama-de-classes-simplificado
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor #EAF2FB
+  BorderColor #2C5F8A
+  FontColor #1A1A1A
+  FontSize 15
+}
+skinparam ArrowColor #2C5F8A
+skinparam ArrowFontColor #1A1A1A
+skinparam ArrowFontSize 13
+
+component "Controlador do Cofre\n\nAbre, fecha e salva o cofre;\ninclui, altera e remove entradas" as Controlador
+component "Cofre\n\nGuarda os grupos e as entradas;\npermite buscar por elas" as Cofre
+component "Entrada\n\nTítulo, usuário, senha,\nURL e notas de um site" as Entrada
+component "Derivador de Chave\n\nTransforma a senha mestra\nem chave de cifragem" as KDF
+
+Controlador --> Cofre : usa
+Controlador --> KDF : usa
+Cofre --> Entrada : contém
+
+@enduml

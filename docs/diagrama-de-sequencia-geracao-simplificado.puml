@@ -1,0 +1,39 @@
+@startuml diagrama-de-sequencia-geracao-simplificado
+skinparam backgroundColor white
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam ArrowColor #2C5F8A
+skinparam ArrowFontColor #1A1A1A
+skinparam ActorBorderColor #2C5F8A
+skinparam ActorFontColor #1A1A1A
+skinparam ParticipantBorderColor #2C5F8A
+skinparam ParticipantBackgroundColor #EAF2FB
+skinparam ParticipantFontColor #1A1A1A
+skinparam LifeLineBorderColor #2C5F8A
+skinparam LifeLineBackgroundColor #EAF2FB
+
+actor Usuário
+participant "Janela do\nGerador" as Janela
+participant "Thread de\nGeração" as Thread
+participant "Painel de\nDesempenho" as Painel
+
+Usuário -> Janela : clica em "Gerar senha"
+activate Janela
+Janela -> Thread : inicia a thread e\neleva sua prioridade
+activate Thread
+Janela -> Painel : exibe o painel
+
+loop a cada "Sortear de novo"
+  Janela -> Thread : pede uma senha
+  Thread -> Thread : sorteia a senha
+  Thread --> Janela : devolve a senha gerada
+  Janela -> Painel : atualiza tempo,\nmemória e prioridade
+end
+
+Usuário -> Janela : aceita ou cancela
+Janela -> Thread : encerra a thread e\nrestaura a prioridade original
+deactivate Thread
+deactivate Janela
+
+@enduml

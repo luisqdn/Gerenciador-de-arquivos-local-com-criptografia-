@@ -22,14 +22,13 @@ from arca.view.widgets.strength_bar import StrengthBar
 class DetailPanel(QScrollArea):
     """Somente leitura: revelar a senha é uma ação explícita do usuário."""
 
-    copy_requested = Signal(str, str)  # (rótulo, valor)
+    copy_requested = Signal(str, str)
     open_url_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
-        # Sem rolagem lateral: os rótulos quebram linha em vez de esticar o painel.
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
         self._corpo = QWidget(self)
@@ -41,8 +40,6 @@ class DetailPanel(QScrollArea):
         self._entrada: Entrada | None = None
         self._senha_visivel = False
         self.clear()
-
-    # ------------------------------------------------------------------
 
     def clear(self) -> None:
         self._entrada = None
@@ -61,8 +58,6 @@ class DetailPanel(QScrollArea):
         if trocou:
             self._senha_visivel = False
         self._redesenhar()
-
-    # ------------------------------------------------------------------
 
     def _redesenhar(self) -> None:
         entrada = self._entrada
@@ -186,12 +181,7 @@ class DetailPanel(QScrollArea):
 
 
 def _descartar_leiaute(leiaute) -> None:
-    """Esvazia um leiaute recursivamente.
-
-    O setParent(None) é o que importa: deleteLater sozinho só agenda a
-    destruição, e o widget antigo continua desenhado por baixo do novo até o
-    próximo ciclo do laço de eventos.
-    """
+    """Esvazia um leiaute recursivamente."""
     while leiaute.count():
         item = leiaute.takeAt(0)
         widget = item.widget()

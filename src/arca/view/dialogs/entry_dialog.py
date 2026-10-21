@@ -22,11 +22,7 @@ from arca.view.widgets.password_edit import PasswordEdit
 
 
 class EntryDialog(QDialog):
-    """Formulário de uma entrada. Devolve as alterações, não as aplica.
-
-    Quem grava é o VaultController. O diálogo se limita a coletar e validar --
-    é a separação que mantém a regra de negócio fora da camada de View.
-    """
+    """Formulário de uma entrada. Devolve as alterações, não as aplica."""
 
     def __init__(self, parent: QWidget | None = None, entrada: Entrada | None = None) -> None:
         super().__init__(parent)
@@ -66,10 +62,6 @@ class EntryDialog(QDialog):
             self._preencher(entrada)
         self._titulo.setFocus()
 
-    # ------------------------------------------------------------------
-    # Dados
-    # ------------------------------------------------------------------
-
     def changes(self) -> dict[str, Any]:
         """Alterações a repassar ao VaultController."""
         return {
@@ -97,10 +89,6 @@ class EntryDialog(QDialog):
         self._senha.set_text(entrada.senha.revelar())
         self._url.setText(entrada.url)
         self._notas.setPlainText(entrada.notas)
-
-    # ------------------------------------------------------------------
-    # Ações
-    # ------------------------------------------------------------------
 
     def _gerar(self) -> None:
         gerada = pedir_senha_gerada(self)

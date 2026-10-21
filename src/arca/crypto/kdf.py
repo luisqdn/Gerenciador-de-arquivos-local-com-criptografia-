@@ -1,23 +1,4 @@
-"""Derivação de chave: do que o usuário digita ao que cifra o arquivo.
-
-A cadeia completa é:
-
-    senha mestra       -> chave composta     (SHA-256)
-    chave composta     -> chave transformada (Argon2id com o sal do cabeçalho)
-    chave transformada -> chave de cifragem  (SHA-512, domínio 0x01)
-                       -> semente de HMAC    (SHA-512, domínio 0x02)
-
-Argon2id foi escolhido por ser o vencedor da Password Hashing Competition e
-por combinar custo de memória -- o que encarece ataques em GPU e FPGA -- com
-resistência a canal lateral por tempo. Os parâmetros ficam gravados no
-cabeçalho do cofre, então arquivos antigos continuam abrindo depois que o
-usuário eleva o custo.
-
-Os bytes de domínio garantem que as duas chaves finais não coincidam, mesmo
-partindo do mesmo material. A semente de HMAC nunca autentica nada
-diretamente: cada bloco do arquivo usa uma subchave própria, derivada do seu
-índice (ver crypto/mac.py).
-"""
+"""Derivação de chave: do que o usuário digita ao que cifra o arquivo."""
 
 from __future__ import annotations
 
@@ -46,13 +27,9 @@ _FORMATO = struct.Struct("<III")
 _INDICE = struct.Struct("<Q")
 
 
-# --------------------------------------------------------------------------
-# Custo do Argon2id
-# --------------------------------------------------------------------------
-
 @dataclass(frozen=True, slots=True)
 class ParametrosKdf:
-    """Custo do Argon2id. O padrão mira algo em torno de meio segundo."""
+    """Custo do Argon2id."""
 
     memoria_kib: int = 64 * 1024
     iteracoes: int = 4
@@ -105,22 +82,8 @@ def transformar(chave_composta: bytes, sal: bytes, params: ParametrosKdf) -> byt
     )
 
 
-# --------------------------------------------------------------------------
-# Chaves do cofre
-# --------------------------------------------------------------------------
-
 def chave_composta(senha: bytes) -> bytes:
-    """Resume a senha mestra nos 32 bytes que alimentam o Argon2id.
-
-    A senha entra já resumida, o que elimina a ambiguidade de derivar sobre
-    uma entrada de tamanho variável.
-
-    O byte de presença que abre a concatenação é herança do formato 1.0, que
-    aceitava um arquivo-chave como segundo fator e precisava separar os
-    arranjos possíveis. O arquivo-chave foi removido do produto, mas o byte
-    permanece: sem ele, todo cofre gravado por aquela versão -- inclusive os
-    protegidos apenas por senha -- deixaria de abrir.
-    """
+    """Resume a senha mestra nos 32 bytes que alimentam o Argon2id."""
     if senha is None:
         raise ValueError("é preciso informar a senha mestra")
 

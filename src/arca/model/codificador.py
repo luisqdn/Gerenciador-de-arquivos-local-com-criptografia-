@@ -1,17 +1,4 @@
-"""Conversão entre o modelo em memória e o payload gravado no cofre.
-
-O payload é um documento JSON em UTF-8. A escolha por JSON, e não por um
-formato binário sob medida, tem três razões práticas: a biblioteca padrão já
-o valida, o resultado comprime bem antes de ser cifrado, e um cofre aberto
-por engano com a chave certa mas por uma ferramenta futura ainda é legível.
-
-As senhas não aparecem em claro nem aqui dentro: são mascaradas pelo fluxo de
-chave ChaCha20 do cabeçalho interno e gravadas em base64. Como o fluxo de
-chave é sequencial, a ordem de aplicação precisa ser idêntica na
-gravação e na leitura -- ela está fixada em `_campos_protegidos`, que
-percorre o próprio dicionário serializado, e não o modelo, justamente para
-que as duas direções não possam divergir.
-"""
+"""Conversão entre o modelo em memória e o payload gravado no cofre."""
 
 from __future__ import annotations
 
@@ -85,10 +72,6 @@ def _campos_protegidos(grupo: dict[str, Any]) -> Iterator[tuple[dict[str, Any], 
         yield from _campos_protegidos(subgrupo)
 
 
-# --------------------------------------------------------------------------
-# Modelo -> dicionário
-# --------------------------------------------------------------------------
-
 def _meta_para_dict(meta: MetadadosDoCofre) -> dict[str, Any]:
     return {
         "nome": meta.nome,
@@ -128,10 +111,6 @@ def _tempos_para_dict(tempos: Tempos) -> dict[str, Any]:
         "modificado": _data_para_texto(tempos.modificado),
     }
 
-
-# --------------------------------------------------------------------------
-# Dicionário -> modelo
-# --------------------------------------------------------------------------
 
 def _meta_de_dict(bruto: dict[str, Any]) -> MetadadosDoCofre:
     meta = MetadadosDoCofre()
@@ -175,10 +154,6 @@ def _tempos_de_dict(bruto: dict[str, Any]) -> Tempos:
     tempos.modificado = _texto_para_data(bruto.get("modificado")) or tempos.modificado
     return tempos
 
-
-# --------------------------------------------------------------------------
-# Conversões pontuais
-# --------------------------------------------------------------------------
 
 def _data_para_texto(valor: datetime | None) -> str | None:
     return None if valor is None else valor.astimezone(UTC).isoformat()

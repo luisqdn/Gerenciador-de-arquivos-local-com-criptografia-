@@ -68,8 +68,6 @@ class PasswordEdit(QWidget):
         if self._forca is not None:
             leiaute.addWidget(self._forca)
 
-    # ------------------------------------------------------------------
-
     def text(self) -> str:
         return self._campo.text()
 
@@ -92,8 +90,6 @@ class PasswordEdit(QWidget):
 
     def setFocus(self) -> None:  # noqa: N802 (API do Qt)
         self._campo.setFocus()
-
-    # ------------------------------------------------------------------
 
     def _ao_mudar(self, texto: str) -> None:
         if self._forca is not None:

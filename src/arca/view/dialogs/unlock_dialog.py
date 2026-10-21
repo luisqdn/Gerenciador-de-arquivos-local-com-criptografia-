@@ -1,10 +1,4 @@
-"""Tela de abertura: destravar um cofre existente ou criar um novo.
-
-A derivação Argon2id leva centenas de milissegundos por construção. Rodá-la
-na thread da interface congelaria a janela e passaria a impressão de travamento
-justamente no momento em que o usuário mais precisa de retorno, então ela vai
-para uma thread auxiliar e a janela mostra um indicador de progresso.
-"""
+"""Tela de abertura: destravar um cofre existente ou criar um novo."""
 
 from __future__ import annotations
 
@@ -31,14 +25,13 @@ from arca.controller.vault_controller import VaultController
 from arca.model.armazenamento import Credenciais
 from arca.model.erros import ErroArca
 
-# Código de retorno próprio: o usuário pediu para criar um cofre em vez de abrir.
 CODIGO_CRIAR = 2
 
 
 class _Trabalhador(QObject):
     """Executa a abertura fora da thread da interface."""
 
-    concluido = Signal(object)   # VaultController
+    concluido = Signal(object)
     falhou = Signal(str)
 
     def __init__(self, caminho: Path, senha: str, somente_leitura: bool) -> None:
@@ -54,7 +47,7 @@ class _Trabalhador(QObject):
             servico.open(self._caminho, credenciais, somente_leitura=self._somente_leitura)
         except ErroArca as exc:
             self.falhou.emit(str(exc))
-        except Exception as exc:  # falha inesperada: melhor mostrar que engolir
+        except Exception as exc:
             self.falhou.emit(f"erro inesperado ao abrir o cofre: {exc}")
         else:
             self.concluido.emit(servico)
@@ -131,12 +124,8 @@ class UnlockDialog(QDialog):
 
         self._senha.setFocus()
 
-    # ------------------------------------------------------------------
-
     def service(self) -> VaultController | None:
         return self._servico
-
-    # ------------------------------------------------------------------
 
     def _procurar_cofre(self) -> None:
         caminho, _ = QFileDialog.getOpenFileName(
@@ -174,11 +163,6 @@ class UnlockDialog(QDialog):
         trabalhador.concluido.connect(thread.quit)
         trabalhador.falhou.connect(thread.quit)
         thread.finished.connect(trabalhador.deleteLater)
-        # O trabalhador precisa de uma referencia do lado Python enquanto a
-        # thread roda. Sem ela, ele e coletado assim que este metodo retorna --
-        # as conexoes de sinal nao seguram o objeto -- e `started` nao encontra
-        # mais o slot: a thread sobe, nada executa e a janela fica no indicador
-        # de progresso para sempre.
         self._trabalhador = trabalhador
         self._thread = thread
         thread.start()

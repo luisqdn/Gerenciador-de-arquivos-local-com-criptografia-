@@ -1,18 +1,4 @@
-"""Adaptadores entre o modelo de domínio e os widgets do Qt.
-
-São as duas pontes que a janela principal usa: uma árvore para os grupos e
-uma tabela para as entradas do grupo selecionado.
-
-Os dois modelos envolvem o domínio, não o copiam. `GroupTreeModel` usa o
-próprio objeto `Grupo` como ponteiro interno do índice, o que só é seguro
-porque a árvore inteira pertence ao `Cofre` e vive exatamente enquanto o
-cofre estiver aberto -- ao trancar, modelo e janela são descartados juntos.
-
-O conjunto exibido na tabela é decidido pela janela principal (um grupo, uma
-busca, a lixeira) e entregue aqui já pronto. Manter o filtro fora do modelo
-evita ter de replicar a linguagem de consulta de `model.busca` em um
-QSortFilterProxy.
-"""
+"""Adaptadores entre o modelo de domínio e os widgets do Qt."""
 
 from __future__ import annotations
 
@@ -25,9 +11,6 @@ from PySide6.QtWidgets import QApplication, QStyle
 
 from arca.model.cofre import Cofre, Entrada, Grupo
 
-# --------------------------------------------------------------------------
-# Árvore de grupos
-# --------------------------------------------------------------------------
 
 class GroupTreeModel(QAbstractItemModel):
     def __init__(self, cofre: Cofre, parent: QObject | None = None) -> None:
@@ -36,10 +19,6 @@ class GroupTreeModel(QAbstractItemModel):
         estilo = QApplication.style()
         self._icone_pasta = estilo.standardIcon(QStyle.StandardPixmap.SP_DirIcon)
         self._icone_lixeira = estilo.standardIcon(QStyle.StandardPixmap.SP_TrashIcon)
-
-    # ------------------------------------------------------------------
-    # Navegação
-    # ------------------------------------------------------------------
 
     def index(self, linha: int, coluna: int, pai: QModelIndex = QModelIndex()) -> QModelIndex:
         if not self.hasIndex(linha, coluna, pai):
@@ -66,10 +45,6 @@ class GroupTreeModel(QAbstractItemModel):
 
     def columnCount(self, _pai: QModelIndex = QModelIndex()) -> int:  # noqa: N802
         return 1
-
-    # ------------------------------------------------------------------
-    # Dados
-    # ------------------------------------------------------------------
 
     def data(self, indice: QModelIndex, papel: int = Qt.ItemDataRole.DisplayRole):
         if not indice.isValid():
@@ -116,10 +91,6 @@ class GroupTreeModel(QAbstractItemModel):
             return "Grupos"
         return None
 
-    # ------------------------------------------------------------------
-    # Utilidades para a janela principal
-    # ------------------------------------------------------------------
-
     def group_at(self, indice: QModelIndex) -> Grupo | None:
         return indice.internalPointer() if indice.isValid() else None
 
@@ -144,10 +115,6 @@ class GroupTreeModel(QAbstractItemModel):
             return 0
         return grupo.pai.grupos.index(grupo)
 
-
-# --------------------------------------------------------------------------
-# Tabela de entradas
-# --------------------------------------------------------------------------
 
 class Coluna(IntEnum):
     TITULO = 0
@@ -174,8 +141,6 @@ class EntryTableModel(QAbstractTableModel):
         self._mostrar_senha = mostrar_senha
         self._icone = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
 
-    # ------------------------------------------------------------------
-
     def set_entries(self, entradas: list[Entrada]) -> None:
         self.beginResetModel()
         self._entradas = entradas
@@ -198,8 +163,6 @@ class EntryTableModel(QAbstractTableModel):
         self.beginResetModel()
         self._mostrar_senha = mostrar
         self.endResetModel()
-
-    # ------------------------------------------------------------------
 
     def rowCount(self, pai: QModelIndex = QModelIndex()) -> int:  # noqa: N802
         return 0 if pai.isValid() else len(self._entradas)
@@ -247,8 +210,6 @@ class EntryTableModel(QAbstractTableModel):
             reverse=ordem == Qt.SortOrder.DescendingOrder,
         )
         self.layoutChanged.emit()
-
-    # ------------------------------------------------------------------
 
     def _texto(self, entrada: Entrada, coluna: Coluna) -> str:
         if coluna is Coluna.TITULO:

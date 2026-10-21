@@ -211,16 +211,17 @@ class TestDialogos:
         from arca.view.dialogs.generator_dialog import NOME_DA_THREAD
 
         dialogo = gerador()
+        capturado = []
+        dialogo._sorteador.pronto.connect(capturado.append)
         dialogo.password()
-        # O painel só recebe o nome da thread que de fato executou o sorteio.
-        assert dialogo._painel._thread.text() == NOME_DA_THREAD
+        assert capturado[-1].thread == NOME_DA_THREAD
         assert QThread.currentThread().objectName() != NOME_DA_THREAD
 
     def test_gerador_devolve_a_prioridade_ao_fechar(self, gerador) -> None:
         dialogo = gerador()
-        assert dialogo._monitor.elevada
+        assert dialogo._prioridade.monitor.elevada
         dialogo.close()
-        assert not dialogo._monitor.elevada
+        assert not dialogo._prioridade.monitor.elevada
 
 
 class TestBotaoGerarDaSenhaMestra:

@@ -1,18 +1,4 @@
-"""Cifra de fluxo usada para mascarar campos sensíveis.
-
-São dois usos, com chaves independentes:
-
-1. no payload gravado em disco, os campos marcados como protegidos são
-   mascarados por este fluxo de chave antes de virarem base64. A chave vive no
-   cabeçalho interno, ou seja, dentro da área já cifrada do arquivo. O ganho
-   é que um payload descomprimido em memória, um core dump ou um arquivo
-   temporário do sistema não expõem senhas em texto claro;
-2. em memória, `ValorProtegido` usa uma chave aleatória por execução.
-
-Como o fluxo de chave é sequencial, produtor e consumidor precisam percorrer
-os campos exatamente na mesma ordem. Essa ordem é definida em
-model/codificador.py.
-"""
+"""Cifra de fluxo usada para mascarar campos sensíveis."""
 
 from __future__ import annotations
 
@@ -34,7 +20,6 @@ class CifraChaCha20:
         if len(chave) != 32:
             raise ValueError("a chave da cifra de fluxo deve ter 32 bytes")
         semente = hashlib.sha512(chave).digest()
-        # Os 8 primeiros bytes do IV são o contador de bloco: começam zerados.
         iv = b"\x00" * 8 + semente[32:40]
         self._ctx = Cipher(algorithms.ChaCha20(semente[:32], iv), mode=None).encryptor()
 
@@ -42,7 +27,7 @@ class CifraChaCha20:
         return self._ctx.update(b"\x00" * tamanho)
 
     def processar(self, dados: bytes) -> bytes:
-        """XOR com o fluxo de chave. Simétrico: aplicar duas vezes restaura o original."""
+        """XOR com o fluxo de chave."""
         return self._ctx.update(dados)
 
 

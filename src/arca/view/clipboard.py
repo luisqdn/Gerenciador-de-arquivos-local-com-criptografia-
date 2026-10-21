@@ -1,15 +1,4 @@
-"""Cópia de senhas com expiração automática.
-
-Deixar uma senha na área de transferência é um vazamento em potencial:
-qualquer programa em execução pode ler o conteúdo a qualquer momento, e
-gerenciadores de histórico de transferência guardam tudo. A mitigação
-possível, do lado da aplicação, é reduzir a janela -- copiar, avisar o
-usuário do prazo e apagar depois.
-
-A limpeza só acontece se o conteúdo ainda for o que este módulo colocou lá.
-Sem essa verificação, o Arca apagaria o que o usuário copiou depois, de outro
-programa, no meio do intervalo.
-"""
+"""Cópia de senhas com expiração automática."""
 
 from __future__ import annotations
 
@@ -18,9 +7,9 @@ from PySide6.QtWidgets import QApplication
 
 
 class ClipboardService(QObject):
-    copied = Signal(int)      # segundos até a limpeza
+    copied = Signal(int)
     cleared = Signal()
-    tick = Signal(int)        # segundos restantes
+    tick = Signal(int)
 
     def __init__(self, segundos: int = 20, parent: QObject | None = None) -> None:
         super().__init__(parent)

@@ -1,9 +1,4 @@
-"""Acesso às listas de palavras empacotadas com o Arca.
-
-Duas listas, com finalidades opostas: uma alimenta o gerador de frases-senha,
-a outra alimenta o estimador de força. Ambas são carregadas sob demanda e
-mantidas em cache, porque nem toda execução precisa delas.
-"""
+"""Acesso às listas de palavras empacotadas com o Arca."""
 
 from __future__ import annotations
 

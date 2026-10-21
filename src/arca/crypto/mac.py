@@ -1,21 +1,4 @@
-"""Fluxo de blocos autenticados.
-
-O corpo cifrado não vai para o disco de uma vez: é fatiado em blocos de até
-1 MiB, cada um precedido pelo seu HMAC-SHA256 e pelo seu tamanho. Um bloco
-de tamanho zero encerra o fluxo.
-
-    [ 32 bytes de HMAC ][ 4 bytes de tamanho, LE ][ N bytes de dados ]
-    ...
-    [ 32 bytes de HMAC ][ 00 00 00 00 ]
-
-Duas propriedades justificam o desenho:
-
-* cada bloco é autenticado com uma subchave derivada do próprio índice, o que
-  impede reordenar, duplicar ou remover blocos sem quebrar a verificação;
-* o bloco final vazio também é autenticado, então truncar o arquivo é
-  detectado. Um HMAC único sobre o arquivo inteiro daria a mesma garantia,
-  mas exigiria ler tudo antes de decidir se vale a pena decifrar.
-"""
+"""Fluxo de blocos autenticados."""
 
 from __future__ import annotations
 

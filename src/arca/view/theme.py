@@ -1,11 +1,4 @@
-"""Aparência da interface.
-
-O Arca não impõe um tema próprio: usa o estilo Fusion, que respeita a paleta
-do sistema e se comporta igual em Windows, Linux e macOS, e aplica por cima
-apenas os ajustes que a aplicação precisa -- rótulos discretos, texto de erro,
-destaque do valor da senha. Assim o programa continua legível se o usuário
-estiver em modo escuro, sem manter duas folhas de estilo em paralelo.
-"""
+"""Aparência da interface."""
 
 from __future__ import annotations
 

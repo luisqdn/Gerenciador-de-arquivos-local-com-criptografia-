@@ -1,14 +1,4 @@
-"""Sessão de trabalho sobre um cofre.
-
-A View não fala diretamente com `model.armazenamento`. Passa por aqui, e o motivo é
-evitar que as regras de negócio -- quando marcar o cofre como sujo, o que
-acontece ao trancar, que opções de gravação reaproveitar -- fiquem
-espalhadas pelos widgets.
-
-O controlador mantém as credenciais em memória enquanto o cofre está aberto,
-porque cada gravação precisa refazer a derivação Argon2id com um sal novo.
-Ao trancar, as credenciais e o modelo são descartados juntos.
-"""
+"""Sessão de trabalho sobre um cofre."""
 
 from __future__ import annotations
 
@@ -47,10 +37,6 @@ class VaultController:
         self._observadores: list[Observador] = []
         self.state = SessionState()
 
-    # ------------------------------------------------------------------
-    # Estado
-    # ------------------------------------------------------------------
-
     @property
     def is_open(self) -> bool:
         return self._vault is not None
@@ -81,10 +67,6 @@ class VaultController:
     def _emitir(self, evento: str) -> None:
         for observador in list(self._observadores):
             observador(evento)
-
-    # ------------------------------------------------------------------
-    # Ciclo de vida
-    # ------------------------------------------------------------------
 
     def create(self, caminho: Path, credenciais: Credenciais,
                opcoes: OpcoesDeGravacao | None = None, nome: str | None = None) -> None:
@@ -166,10 +148,6 @@ class VaultController:
             return OpcoesDeGravacao()
         return OpcoesDeGravacao.a_partir_do_cabecalho(self.state.header)
 
-    # ------------------------------------------------------------------
-    # Mutações
-    # ------------------------------------------------------------------
-
     def mark_dirty(self) -> None:
         if not self.state.dirty:
             self.state.dirty = True
@@ -181,11 +159,7 @@ class VaultController:
         return entrada
 
     def update_entry(self, entrada: Entrada, alteracoes: dict[str, Any]) -> None:
-        """Aplica alterações campo a campo.
-
-        Se nada mudou de fato, não suja o cofre: abrir e fechar a janela de
-        edição sem mexer em nada não deve marcar o arquivo como pendente.
-        """
+        """Aplica alterações campo a campo."""
         if not self._alteracoes_efetivas(entrada, alteracoes):
             return
         for campo, valor in alteracoes.items():

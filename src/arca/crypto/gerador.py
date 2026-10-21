@@ -1,15 +1,4 @@
-"""Geração de senhas e frases-senha.
-
-Todo sorteio passa por `secrets`, que consome o gerador criptográfico do
-sistema operacional. `random` não aparece em nenhum ponto deste módulo: o
-Mersenne Twister é previsível a partir de algumas centenas de saídas.
-
-Sobre a exigência de "ao menos um caractere de cada conjunto": ela reduz o
-espaço de busca, e por isso o cálculo de entropia devolvido aqui trata essa
-opção de forma conservadora. Na prática o efeito é pequeno para senhas de 12
-caracteres ou mais, e a alternativa -- gerar senhas que serviços recusam --
-custa mais ao usuário do que a fração de bit perdida.
-"""
+"""Geração de senhas e frases-senha."""
 
 from __future__ import annotations
 
@@ -86,8 +75,6 @@ class ReceitaDeSenha:
         base = self.comprimento * math.log2(len(self.alfabeto()))
         if not self.exigir_cada_conjunto:
             return base
-        # A rejeição de candidatas descarta parte do espaço amostral; o
-        # desconto abaixo é uma cota superior grosseira dessa perda.
         return max(0.0, base - math.log2(max(1, len(self.alfabetos()))))
 
 
@@ -101,8 +88,6 @@ def gerar_senha(receita: ReceitaDeSenha | None = None) -> str:
     if not receita.exigir_cada_conjunto:
         return "".join(secrets.choice(alfabeto) for _ in range(receita.comprimento))
 
-    # Amostragem por rejeição: preserva a distribuição uniforme, ao contrário
-    # de forçar posições fixas para cada conjunto.
     for _ in range(_TENTATIVAS_MAXIMAS):
         candidata = "".join(secrets.choice(alfabeto) for _ in range(receita.comprimento))
         if all(any(c in conjunto for c in candidata) for conjunto in conjuntos):

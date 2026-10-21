@@ -1,18 +1,4 @@
-"""Contenção de material sensível em memória.
-
-CPython não permite apagar de forma confiável objetos bytes ou str: são
-imutáveis e podem ser copiados pelo interpretador (internamento de strings,
-realloc de buffers, cópias feitas pelo coletor de lixo). O que este módulo
-oferece é redução da janela de exposição, não garantia:
-
-* BytesSecretos guarda o material em um bytearray e o sobrescreve no instante
-  em que ele deixa de ser necessário;
-* ValorProtegido mantém valores de campo mascarados por um fluxo de chave
-  sorteado a cada execução, de modo que um dump de memória da interface não
-  revele senhas com uma simples varredura por texto legível.
-
-Os limites dessa abordagem estão descritos em docs/modelo-de-ameacas.md.
-"""
+"""Contenção de material sensível em memória."""
 
 from __future__ import annotations
 
@@ -83,11 +69,7 @@ def apagados(*segredos: BytesSecretos) -> Iterator[None]:
 
 
 class ValorProtegido:
-    """Texto mascarado em memória por um fluxo de chave exclusivo do processo.
-
-    Cada instância consome uma faixa própria do fluxo de chave, então dois
-    valores idênticos ficam com máscaras diferentes na heap.
-    """
+    """Texto mascarado em memória por um fluxo de chave exclusivo do processo."""
 
     _cifra: CifraChaCha20 | None = None
 
@@ -126,5 +108,4 @@ class ValorProtegido:
         return f"<ValorProtegido {len(self._mascarado)} caracteres>"
 
     def __str__(self) -> str:
-        # Evita vazamento acidental em logs, tracebacks e f-strings.
         return "•" * len(self._mascarado)

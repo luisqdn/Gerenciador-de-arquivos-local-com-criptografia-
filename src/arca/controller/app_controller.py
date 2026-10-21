@@ -1,14 +1,4 @@
-"""Ponto de entrada da interface gráfica.
-
-O controlador alterna entre dois estados: cofre trancado, com a tela de
-destravamento em primeiro plano, e cofre aberto, com a janela principal. A
-transição acontece nos dois sentidos -- trancar não encerra o programa, e o
-usuário pode destravar outro cofre sem reiniciar.
-
-`setQuitOnLastWindowClosed(False)` é necessário justamente por causa disso:
-sem ele, o Qt encerraria o processo no instante em que a janela principal
-fechasse para dar lugar à tela de destravamento.
-"""
+"""Ponto de entrada da interface gráfica."""
 
 from __future__ import annotations
 
@@ -37,7 +27,7 @@ class ArcaController(QObject):
         self._caminho_inicial = caminho_inicial
 
     def start(self) -> bool:
-        """Abre a primeira sessão. Devolve False se o usuário desistir."""
+        """Abre a primeira sessão."""
         return self._abrir_sessao()
 
     def _abrir_sessao(self) -> bool:
